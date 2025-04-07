@@ -1,0 +1,23 @@
+name: Slack New PR Notification
+
+on:
+  pull_request:
+    branches: ['main']
+
+permissions:
+  contents: read
+
+jobs:
+  send_starting_slack_notification:
+    name: Send Starting Slack Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send PR Created Notification
+        if: github.event_name == 'pull_request' && github.event.action == 'opened'
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_TITLE: '${{github.event.repository.name}} PR Created: ${{ github.event.pull_request.title }} by ${{ github.event.pull_request.user.login }}'
+          SLACK_FOOTER: ''
+          MSG_MINIMAL: true
+          SLACK_MESSAGE: 'PR Created ${{ github.event.pull_request.html_url }}'
