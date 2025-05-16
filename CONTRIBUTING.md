@@ -14,7 +14,7 @@ submit your pull requests effectively.
 
 ## Trunk-Based Development
 
-![Trunk-Based Development](https://github.com/aws-solutions-library-samples/osml-imagery-toolkit/assets/4109909/0b3c03ae-4518-471e-9331-da850f0d2e22)
+![Trunk-Based Development](https://github.com/awslabs/osml-imagery-toolkit/assets/4109909/0b3c03ae-4518-471e-9331-da850f0d2e22)
 
 We follow a trunk-based development model to manage our codebase.
 This guide provides a step-by-step example of implementing a Trunk-Based Development (TBD) workflow for development.

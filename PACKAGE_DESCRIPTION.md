@@ -11,7 +11,7 @@ This library contains four core packages under the `aws.osml` namespace:
 
 ## Documentation
 
-* **APIs**: You can find the latest API documentation for the OSML Imagery Toolkit hosted [here](https://aws-solutions-library-samples.github.io/osml-imagery-toolkit/).
+* **APIs**: You can find the latest API documentation for the OSML Imagery Toolkit hosted [here](https://awslabs.github.io/osml-imagery-toolkit/).
   If you are working from the source code running `tox -e docs` will trigger the Sphinx documentation build.
 * **Example Notebooks**: Example notebooks for some operations are in the `examples` directory
 
@@ -34,4 +34,4 @@ this package will include image IO backbones that have fewer dependencies.
 
 ## Contributing
 We welcome contributions and suggestions. If you would like to submit a pull request please do so using a GitHub pull
-request [here](https://github.com/aws-solutions-library-samples/osml-imagery-toolkit/pulls).
+request [here](https://github.com/awslabs/osml-imagery-toolkit/pulls).

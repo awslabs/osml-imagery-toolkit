@@ -1,8 +1,8 @@
 # OversightML Imagery Toolkit
-![Build Badge](https://github.com/aws-solutions-library-samples/osml-imagery-toolkit/actions/workflows/build.yml/badge.svg)
+![Build Badge](https://github.com/awslabs/osml-imagery-toolkit/actions/workflows/build.yml/badge.svg)
 ![Python Badge](https://img.shields.io/badge/python-3.9%2C%203.10%2C%203.11%2C%203.12%2C%203.13-blue)
 ![GDAL Badge](https://img.shields.io/badge/gdal-3.7%2C%203.8%2C%203.9-blue)
-![GitHub License](https://img.shields.io/github/license/aws-solutions-library-samples/osml-imagery-toolkit?color=blue)
+![GitHub License](https://img.shields.io/github/license/awslabs/osml-imagery-toolkit?color=blue)
 ![PyPI - Version](https://img.shields.io/pypi/v/osml-imagery-toolkit)
 
 
@@ -19,7 +19,7 @@ This library contains four core packages under the `aws.osml` namespace:
 
 ## Documentation
 
-* **APIs**: You can find the latest API documentation for the OSML Imagery Toolkit hosted [here](https://aws-solutions-library-samples.github.io/osml-imagery-toolkit/).
+* **APIs**: You can find the latest API documentation for the OSML Imagery Toolkit hosted [here](https://awslabs.github.io/osml-imagery-toolkit/).
 If you are working from the source code running `tox -e docs` will trigger the Sphinx documentation build.
 * **Example Notebooks**: Example notebooks for some operations are in the `examples` directory
 
@@ -54,4 +54,4 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 ## License
 
-This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.
+This library is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file.

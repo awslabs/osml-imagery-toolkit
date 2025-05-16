@@ -61,6 +61,7 @@ repos:
             schemas/.*|
             test/data/.*|
             LICENSE|
+            NOTICE|
             py.typed|
             pyproject.toml|
             setup.cfg|
@@ -78,6 +79,7 @@ repos:
             schemas/.*|
             test/data/.*|
             LICENSE|
+            NOTICE|
             py.typed|
             pyproject.toml|
             setup.cfg|
