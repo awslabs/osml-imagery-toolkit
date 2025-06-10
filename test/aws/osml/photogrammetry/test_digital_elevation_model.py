@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 import unittest
 
@@ -56,7 +57,7 @@ class TestDigitalElevationModel(unittest.TestCase):
         # while the latitude, longitude are unchanged
         for grid_coordinate, expected_value in zip(test_grid_coordinates, expected_values):
             world_coordinate = GeodeticWorldCoordinate([1.0, 2.0, 0.0])
-            dem.set_elevation(world_coordinate)
+            assert dem.set_elevation(world_coordinate)
 
             assert world_coordinate.longitude == 1.0
             assert world_coordinate.latitude == 2.0
@@ -83,7 +84,7 @@ class TestDigitalElevationModel(unittest.TestCase):
         dem = DigitalElevationModel(mock_tile_set, mock_tile_factory)
 
         world_coordinate = GeodeticWorldCoordinate([1.0, 2.0, 0.0])
-        dem.set_elevation(world_coordinate)
+        assert not dem.set_elevation(world_coordinate)
         assert world_coordinate.elevation == 0.0
         assert mock_tile_set.find_tile_id.call_count == 1
         assert mock_tile_factory.get_tile.call_count == 0
@@ -105,7 +106,7 @@ class TestDigitalElevationModel(unittest.TestCase):
         dem = DigitalElevationModel(mock_tile_set, mock_tile_factory)
 
         world_coordinate = GeodeticWorldCoordinate([1.0, 2.0, 0.0])
-        dem.set_elevation(world_coordinate)
+        assert not dem.set_elevation(world_coordinate)
         assert world_coordinate.elevation == 0.0
         assert mock_tile_set.find_tile_id.call_count == 1
         assert mock_tile_factory.get_tile.call_count == 1

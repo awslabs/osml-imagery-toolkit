@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -30,14 +31,14 @@ class ElevationModel(ABC):
         pass
 
     @abstractmethod
-    def set_elevation(self, world_coordinate: GeodeticWorldCoordinate) -> None:
+    def set_elevation(self, world_coordinate: GeodeticWorldCoordinate) -> bool:
         """
         This method updates the elevation component of a world coordinate to match the surface elevation at
         longitude, latitude.
 
         :param world_coordinate: the coordinate to update
 
-        :return: None
+        :return: True if the elevation was updated, else False
         """
 
     @abstractmethod
@@ -66,15 +67,16 @@ class ConstantElevationModel(ElevationModel):
         super().__init__()
         self.constant_elevation = constant_elevation
 
-    def set_elevation(self, world_coordinate: GeodeticWorldCoordinate) -> None:
+    def set_elevation(self, world_coordinate: GeodeticWorldCoordinate) -> bool:
         """
         Updates world coordinate's elevation to match the constant elevation.
 
         :param world_coordinate: the coordinate to update
 
-        :return: None
+        :return: True if the elevation was updated, else False
         """
         world_coordinate.elevation = self.constant_elevation
+        return True
 
     def describe_region(self, world_coordinate: GeodeticWorldCoordinate) -> Optional[ElevationRegionSummary]:
         """

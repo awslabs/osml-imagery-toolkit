@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 import unittest
 
@@ -11,7 +12,7 @@ class TestElevationModel(unittest.TestCase):
         elevation_model = ConstantElevationModel(10.0)
         world_coordinate = GeodeticWorldCoordinate([1.0, 2.0, 0.0])
         assert world_coordinate.elevation == 0.0
-        elevation_model.set_elevation(world_coordinate)
+        assert elevation_model.set_elevation(world_coordinate)
         assert world_coordinate.longitude == 1
         assert world_coordinate.latitude == 2
         assert world_coordinate.elevation == 10.0

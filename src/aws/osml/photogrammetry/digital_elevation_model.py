@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 # TODO: Add typing for ArrayLike once Numpy upgraded to 1.20+
 # from numpy.typing import ArrayLike
@@ -102,7 +103,7 @@ class DigitalElevationModel(ElevationModel):
         #       one time. Look at the size of those tiles and add a comment about how much memory will be used by this
         #       setting. Pick a default that is reasonable and also likely to cover most images
 
-    def set_elevation(self, geodetic_world_coordinate: GeodeticWorldCoordinate) -> None:
+    def set_elevation(self, geodetic_world_coordinate: GeodeticWorldCoordinate) -> bool:
         """
         This method updates the elevation component of a geodetic world coordinate to match the surface
         elevation at the provided latitude and longitude. Note that if the DEM does not have elevation
@@ -111,17 +112,21 @@ class DigitalElevationModel(ElevationModel):
 
         :param geodetic_world_coordinate: the coordinate to update
 
-        :return: None
+        :return: True if the elevation was updated, else False
         """
         tile_id = self.tile_set.find_tile_id(geodetic_world_coordinate)
         if not tile_id:
-            return
+            return False
 
         interpolation_grid, sensor_model, summary = self.get_interpolation_grid(tile_id)
 
         if interpolation_grid is not None and sensor_model is not None:
             image_coordinate = sensor_model.world_to_image(geodetic_world_coordinate)
             geodetic_world_coordinate.elevation = interpolation_grid(image_coordinate.x, image_coordinate.y)[0][0]
+            return True
+
+        # else can't set elevation without grid / model
+        return False
 
     def describe_region(self, geodetic_world_coordinate: GeodeticWorldCoordinate) -> Optional[ElevationRegionSummary]:
         """
