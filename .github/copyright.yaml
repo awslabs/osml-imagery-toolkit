@@ -1,5 +1,5 @@
-one_date_re: ' Copyright (?P<year>[0-9]{4})'
-two_date_re: ' Copyright (?P<from>[0-9]{4})-(?P<to>[0-9]{4})'
-one_date_format: ' Copyright {year}'
-two_date_format: ' Copyright {from}-{to}'
+one_date_re: ' Copyright (?P<year>[0-9]{4}) Amazon\.com, Inc\. or its affiliates\.'
+two_date_re: ' Copyright (?P<from>[0-9]{4})-(?P<to>[0-9]{4}) Amazon\.com, Inc\. or its affiliates\.'
+one_date_format: ' Copyright {year} Amazon.com, Inc. or its affiliates.'
+two_date_format: ' Copyright {from}-{to} Amazon.com, Inc. or its affiliates.'
 license_file: LICENSE

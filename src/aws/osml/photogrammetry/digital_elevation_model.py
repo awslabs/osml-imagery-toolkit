@@ -1,5 +1,5 @@
-#  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
-#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
+#  Copyright 2023-2025 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025 General Atomics Integrated Intelligence, Inc.
 
 # TODO: Add typing for ArrayLike once Numpy upgraded to 1.20+
 # from numpy.typing import ArrayLike
