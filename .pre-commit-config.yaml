@@ -47,29 +47,12 @@ repos:
         # uncomment the line below if using "finch" on MacOS
         # args: [ "-f" ]
 
-  - repo: https://github.com/sbrunner/pre-commit-copyright
-    rev: 0.7.0
+  - repo: local
     hooks:
-      - id: copyright
-        name: update copyright
-        exclude: |
-          (?x)^(
-            doc/.*|
-            ^\..+|
-            .+\.md|
-            examples/.*|
-            schemas/.*|
-            test/data/.*|
-            LICENSE|
-            NOTICE|
-            py.typed|
-            pyproject.toml|
-            setup.cfg|
-            setup.py|
-            tox.ini
-          )$
-      - id: copyright-required
-        name: require copyright
+      - id: check-copyright
+        name: Check for copyright
+        entry: python .github/hooks/check-copyright.py
+        language: system
         exclude: |
           (?x)^(
             doc/.*|
