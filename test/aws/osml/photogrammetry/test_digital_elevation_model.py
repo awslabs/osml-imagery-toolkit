@@ -111,6 +111,29 @@ class TestDigitalElevationModel(unittest.TestCase):
         assert mock_tile_set.find_tile_id.call_count == 1
         assert mock_tile_factory.get_tile.call_count == 1
 
+    def test_tile_exception(self):
+        from aws.osml.photogrammetry.coordinates import GeodeticWorldCoordinate
+        from aws.osml.photogrammetry.digital_elevation_model import (
+            DigitalElevationModel,
+            DigitalElevationModelTileFactory,
+            DigitalElevationModelTileSet,
+        )
+
+        # This is the case when the tile factory has an exception
+        mock_tile_set = mock.Mock(DigitalElevationModelTileSet)
+        mock_tile_set.find_tile_id.return_value = "MockN00E000V0.tif"
+        mock_tile_factory = mock.Mock(DigitalElevationModelTileFactory)
+        mock_tile_factory.get_tile.side_effect = Exception
+
+        dem = DigitalElevationModel(mock_tile_set, mock_tile_factory)
+
+        world_coordinate = GeodeticWorldCoordinate([1.0, 2.0, 0.0])
+        assert not dem.set_elevation(world_coordinate)
+        assert not dem.set_elevation(world_coordinate)
+        assert world_coordinate.elevation == 0.0
+        assert mock_tile_set.find_tile_id.call_count == 2
+        assert mock_tile_factory.get_tile.call_count == 1
+
 
 if __name__ == "__main__":
     unittest.main()

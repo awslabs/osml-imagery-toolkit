@@ -161,7 +161,10 @@ class DigitalElevationModel(ElevationModel):
 
         :return: the cached interpolation object, sensor model, and summary
         """
-        elevations_array, sensor_model, summary = self.tile_factory.get_tile(tile_path)
+        try:
+            elevations_array, sensor_model, summary = self.tile_factory.get_tile(tile_path)
+        except Exception:
+            elevations_array, sensor_model, summary = (None, None, None)
         if elevations_array is not None and sensor_model is not None:
             height, width = elevations_array.shape
             x = range(0, width)
