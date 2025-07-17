@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 import unittest
 from math import radians
@@ -97,6 +98,22 @@ class TestSICDSensorModel(unittest.TestCase):
         geodetic_world_coordinate = sicd_sensor_model.image_to_world(
             ImageCoordinate([sicd.image_data.scppixel.col, sicd.image_data.scppixel.row]), elevation_model=elevation_model
         )
+
+        # This second class is used to test missing elevation summary.
+        class EmptyElevationModel(TestElevationModel):
+            def describe_region(
+                self, world_coordinate: GeodeticWorldCoordinate
+            ) -> Optional[Tuple[float, float, float, float]]:
+                return None
+
+        assert np.allclose(
+            geodetic_world_coordinate.coordinate,
+            sicd_sensor_model.image_to_world(
+                ImageCoordinate([sicd.image_data.scppixel.col, sicd.image_data.scppixel.row]),
+                elevation_model=EmptyElevationModel(scp_lle.elevation),
+            ).coordinate,
+        )
+
         ecf_world_coordinate = geodetic_to_geocentric(geodetic_world_coordinate)
 
         assert np.allclose(ecf_world_coordinate.coordinate, scp_ecf.coordinate, atol=0.001)
