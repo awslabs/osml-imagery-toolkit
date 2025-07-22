@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 import logging
 from abc import abstractmethod
@@ -807,6 +808,9 @@ class DEMRRDotSurfaceProjection(RRDotSurfaceProjection):
         elevation_model: ElevationModel,
         max_adjacent_point_distance: float = 10.0,
         height_threshold: float = 0.001,
+        min_height: float = -4000.0,
+        max_height: float = 9000.0,
+        max_horizontal_distance: float = 15.0,
     ):
         """
         Constructor for the projection that takes the image parameters and a digital elevation model (DEM).
@@ -817,6 +821,9 @@ class DEMRRDotSurfaceProjection(RRDotSurfaceProjection):
         :param elevation_model: the digital elevation model
         :param max_adjacent_point_distance: Maximum distance between adjacent points along the R/Rdot contour
         :param height_threshold: threshold for determining if a R/Rdot contour point is on the DEM surface (m)
+        :param min_height: Minimum height above ellipsoid in meters.
+        :param max_height: Maximum height above ellipsoid in meters.
+        :param max_horizontal_distance: Maximum horizontal distance between adjacent points along the R/Rdot contour
         """
         self.scp_ecf = scp_ecf
         self.scp_lle = geocentric_to_geodetic(scp_ecf)
@@ -828,16 +835,15 @@ class DEMRRDotSurfaceProjection(RRDotSurfaceProjection):
         if side_of_track == "R":
             self.look = -1.0
 
-        elevation_summary = elevation_model.describe_region(self.scp_lle)
-        self.hae_min = elevation_summary.min_elevation
-        self.hae_max = elevation_summary.max_elevation
+        self.hae_min = min_height
+        self.hae_max = max_height
         self.hae_max_surface_projection = HAERRDotSurfaceProjection(
             scp_ecf=scp_ecf, side_of_track=side_of_track, hae=self.hae_max
         )
         self.hae_min_surface_projection = HAERRDotSurfaceProjection(
             scp_ecf=scp_ecf, side_of_track=side_of_track, hae=self.hae_min
         )
-        self.delta_dist_dem = 0.5 * elevation_summary.post_spacing
+        self.delta_dist_dem = max_horizontal_distance
 
         self.delta_dist_rrc = max_adjacent_point_distance
         self.delta_hd_lim = height_threshold
@@ -1051,8 +1057,21 @@ class SICDSensorModel(SensorModel):
         r_tgt_coa, r_dot_tgt_coa, time_coa, arp_coa, varp_coa = self.coa_projection_set.precise_rrdot_computation(xrow_ycol)
 
         if elevation_model is not None:
+            scp_lle = geocentric_to_geodetic(self.coord_converter.scp_ecf)
+            elevation_summary = elevation_model.describe_region(scp_lle)
+            if elevation_summary is not None:
+                extra_kwargs = {
+                    "min_height": elevation_summary.min_elevation,
+                    "max_height": elevation_summary.max_elevation,
+                    "max_horizontal_distance": 0.5 * elevation_summary.post_spacing,
+                }
+            else:
+                extra_kwargs = {}
             surface_projection = DEMRRDotSurfaceProjection(
-                self.coord_converter.scp_ecf, self.side_of_track, elevation_model=elevation_model
+                self.coord_converter.scp_ecf,
+                self.side_of_track,
+                elevation_model=elevation_model,
+                **extra_kwargs,
             )
         else:
             surface_projection = self.default_surface_projection
