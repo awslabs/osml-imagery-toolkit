@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 import logging
 from typing import Optional, Union
@@ -97,12 +98,26 @@ class SIDDSensorModelBuilder(SensorModelBuilder):
             arp_poly=arp_poly,
         )
 
+        center_time = projection_set.coa_time_poly(0, 0)
+        side_of_track = SICDSensorModel.compute_side_of_track(
+            scp_ecf=scp_ecf,
+            scp_arp=projection_set.arp_poly(center_time),
+            scp_varp=projection_set.varp_poly(center_time),
+        )
+        u_spn = SICDSensorModel.compute_u_spn(
+            scp_ecf=scp_ecf,
+            scp_arp=projection_set.arp_poly(center_time),
+            scp_varp=projection_set.varp_poly(center_time),
+            side_of_track=side_of_track,
+        )
+
         u_gpn = SICDSensorModel.compute_u_gpn(scp_ecf=scp_ecf, u_row=u_row, u_col=u_col)
 
         sidd_sensor_model = SICDSensorModel(
             coord_converter=coord_converter,
             coa_projection_set=projection_set,
-            u_spn=u_gpn,
+            u_spn=u_spn,
+            side_of_track=side_of_track,
             u_gpn=u_gpn,
         )
 
