@@ -1,6 +1,7 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
-from math import degrees, floor, radians
+from math import degrees, floor
 from typing import Optional
 
 from .coordinates import GeodeticWorldCoordinate
@@ -60,5 +61,4 @@ class GenericDEMTileSet(DigitalElevationModelTileSet):
         ):
             return None
 
-        ul_coordinate = GeodeticWorldCoordinate([radians(longitude_degrees), radians(latitude_degrees), 0.0])
-        return f"{ul_coordinate:{self.format_string}}"
+        return f"{geodetic_world_coordinate:{self.format_string}}"
