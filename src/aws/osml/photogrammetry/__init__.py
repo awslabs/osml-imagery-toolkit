@@ -120,9 +120,11 @@ from .coordinates import (
 )
 from .digital_elevation_model import DigitalElevationModel, DigitalElevationModelTileFactory, DigitalElevationModelTileSet
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
+from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
 from .gdal_sensor_model import GDALAffineSensorModel
 from .generic_dem_tile_set import GenericDEMTileSet
 from .multi_elevation_model import MultiElevationModel
+from .offset_elevation_model import OffsetElevationModel
 from .projective_sensor_model import ProjectiveSensorModel
 from .replacement_sensor_model import (
     RSMContext,
