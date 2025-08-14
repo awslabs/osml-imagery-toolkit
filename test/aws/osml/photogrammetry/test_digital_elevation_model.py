@@ -134,6 +134,81 @@ class TestDigitalElevationModel(unittest.TestCase):
         assert mock_tile_set.find_tile_id.call_count == 2
         assert mock_tile_factory.get_tile.call_count == 1
 
+    def test_missing_elevation(self):
+        from aws.osml.photogrammetry.coordinates import GeodeticWorldCoordinate, ImageCoordinate
+        from aws.osml.photogrammetry.digital_elevation_model import (
+            DigitalElevationModel,
+            DigitalElevationModelTileFactory,
+            DigitalElevationModelTileSet,
+        )
+        from aws.osml.photogrammetry.elevation_model import ElevationRegionSummary
+        from aws.osml.photogrammetry.sensor_model import SensorModel
+
+        mock_tile_set = mock.Mock(DigitalElevationModelTileSet)
+        mock_tile_set.find_tile_id.return_value = "MockN00E000V0.tif"
+
+        # This is a sample 3x3 grid of elevation data with a no data value at 2,2
+        test_elevation_data = np.array([[0.0, 1.0, 4.0], [1.0, 2.0, 3.0], [2.0, 3.0, -9999]])
+        test_elevation_summary = ElevationRegionSummary(0.0, 4.0, -9999, 30.0)
+
+        # These are the points we will test for interpolation
+        test_grid_coordinates = [
+            ImageCoordinate([-1.0, -1.0]),
+            ImageCoordinate([0.5, 0.5]),
+            ImageCoordinate([1.0, 0.5]),
+            ImageCoordinate([1.0, 1.5]),
+            ImageCoordinate([1.5, 0.0]),
+            ImageCoordinate([1.5, 1.5]),
+            ImageCoordinate([2.5, 2.5]),
+            ImageCoordinate([0.0, 0.0]),
+            ImageCoordinate([2.0, 2.0]),
+        ]
+
+        # This is the default elevation value. If there is missing data in the elevation
+        # array, the interpolator should fall back to this elevation to avoid feeding large
+        # negative numbers to the interpolation grid
+        default_elevation = 2.0
+
+        # These are the expected interpolation values AND the expected return value of the elevation update
+        expected_values = [
+            (0.0, True),
+            (1.0, True),
+            (1.5, True),
+            (default_elevation, False),
+            (2.5, True),
+            (default_elevation, False),
+            (default_elevation, False),
+            (0.0, True),
+            (default_elevation, False),
+        ]
+
+        # This mock sensor model will return the sequence of test_grid_coordinates each time a
+        # world_to_image call is made
+        mock_sensor_model = mock.Mock(SensorModel)
+        mock_sensor_model.world_to_image.side_effect = iter(test_grid_coordinates)
+
+        # This mock tile factory will always return the 3x3 elevation grid and the sensor model
+        mock_tile_factory = mock.Mock(DigitalElevationModelTileFactory)
+        mock_tile_factory.get_tile.return_value = test_elevation_data, mock_sensor_model, test_elevation_summary
+
+        dem = DigitalElevationModel(mock_tile_set, mock_tile_factory, propagate_nans=True)
+
+        # Loop over all the expected values and verify that the interpolated value matched the
+        # expected value. If no data is present in the elevation array, the interpolator should
+        # match the default elevation and not update the elevation
+        for grid_coordinate, (expected_value, updated_elevation) in zip(test_grid_coordinates, expected_values):
+            world_coordinate = GeodeticWorldCoordinate([1.0, 2.0, default_elevation])
+            assert dem.set_elevation(world_coordinate) == updated_elevation
+
+            assert world_coordinate.longitude == 1.0
+            assert world_coordinate.latitude == 2.0
+            assert world_coordinate.elevation == pytest.approx(expected_value)
+
+        # Verify that find_tile_id was called for each test but that get_tile was only called
+        # once because the grid and sensor model were cached
+        assert mock_tile_set.find_tile_id.call_count == len(test_grid_coordinates)
+        assert mock_tile_factory.get_tile.call_count == 1
+
 
 if __name__ == "__main__":
     unittest.main()
