@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 # Telling flake8 to not flag errors in this file. It is normal that these classes are imported but not used in an
 # __init__.py file.
@@ -119,8 +120,10 @@ from .coordinates import (
 )
 from .digital_elevation_model import DigitalElevationModel, DigitalElevationModelTileFactory, DigitalElevationModelTileSet
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
+from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
 from .gdal_sensor_model import GDALAffineSensorModel
 from .generic_dem_tile_set import GenericDEMTileSet
+from .offset_elevation_model import OffsetElevationModel
 from .projective_sensor_model import ProjectiveSensorModel
 from .replacement_sensor_model import (
     RSMContext,
