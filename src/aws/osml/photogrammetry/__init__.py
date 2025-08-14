@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 # Telling flake8 to not flag errors in this file. It is normal that these classes are imported but not used in an
 # __init__.py file.
@@ -121,6 +122,7 @@ from .digital_elevation_model import DigitalElevationModel, DigitalElevationMode
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
 from .gdal_sensor_model import GDALAffineSensorModel
 from .generic_dem_tile_set import GenericDEMTileSet
+from .multi_elevation_model import MultiElevationModel
 from .projective_sensor_model import ProjectiveSensorModel
 from .replacement_sensor_model import (
     RSMContext,
@@ -161,6 +163,7 @@ __all__ = [
     "GeodeticWorldCoordinate",
     "INCAProjectionSet",
     "ImageCoordinate",
+    "MultiElevationModel",
     "PFAProjectionSet",
     "PlaneProjectionSet",
     "Polynomial2D",
