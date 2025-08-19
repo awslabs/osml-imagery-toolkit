@@ -124,7 +124,7 @@ APIs
 from .gdal_tile_factory import GDALTileFactory
 from .map_tileset import MapTile, MapTileId, MapTileSet
 from .map_tileset_factory import MapTileSetFactory, WellKnownMapTileSet
-from .sar_complex_imageop import histogram_stretch, quarter_power_image
+from .sar_complex_imageop import histogram_stretch, linear_mapping_complex, quarter_power_image
 
 __all__ = [
     "GDALTileFactory",
@@ -135,4 +135,5 @@ __all__ = [
     "WellKnownMapTileSet",
     "histogram_stretch",
     "quarter_power_image",
+    "linear_mapping_complex",
 ]

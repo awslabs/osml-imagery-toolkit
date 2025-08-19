@@ -7,7 +7,7 @@ from osgeo import gdal
 
 from aws.osml.gdal import load_gdal_dataset
 from aws.osml.image_processing import histogram_stretch, quarter_power_image
-from aws.osml.image_processing.sar_complex_imageop import image_pixels_to_complex, linear_mapping
+from aws.osml.image_processing.sar_complex_imageop import image_pixels_to_complex, linear_mapping, linear_mapping_complex
 
 gdal.UseExceptions()
 
@@ -57,7 +57,7 @@ class TestSARImageOPs(TestCase):
         self.assertLessEqual(np.min(pixels), 0.0)
         self.assertGreaterEqual(np.max(pixels), 255.0)
 
-        linear = linear_mapping(pixels)
+        linear = linear_mapping_complex(pixels)
         min_value = np.min(linear)
         self.assertGreaterEqual(min_value, 0.0)
         self.assertLessEqual(min_value, 0.02)

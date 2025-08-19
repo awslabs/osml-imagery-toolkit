@@ -119,6 +119,25 @@ def quarter_power_mag_values(
     return np.clip(255.0 * b * sqrt_magnitude, 0.0, 255.0)
 
 
+def linear_mapping_complex(
+    image_pixels: np.ndarray,
+    pixel_type: Optional[str] = None,
+    amplitude_table: Optional[np.typing.ArrayLike] = None,
+) -> np.ndarray:
+    """
+    This function converts SAR complex image pixels to linearly mapped values in the range [0:1].
+    It first converts the complex data to power values, then applies linear mapping.
+
+    :param image_pixels: the SAR image pixels (can be complex data)
+    :param pixel_type: "AMP8I_PHS8I", "RE32F_IM32F", or "RE16I_IM32F"
+    :param amplitude_table: optional lookup table of amplitude values for AMP8I_PHS8I image pixels
+    :return: the linearly mapped values in range [0:1]
+    """
+    complex_data = image_pixels_to_complex(image_pixels, pixel_type=pixel_type, amplitude_table=amplitude_table)
+    power_values = complex_to_power_value(complex_data)
+    return linear_mapping(power_values)
+
+
 def histogram_stretch(
     image_pixels: np.ndarray,
     pixel_type: Optional[str] = None,
