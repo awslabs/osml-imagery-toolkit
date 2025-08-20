@@ -1006,6 +1006,34 @@ class SICDSensorModel(SensorModel):
         self.default_surface_projection = GroundPlaneRRDotSurfaceProjection(self.coord_converter.scp_ecf, self.uvect_gpn)
 
     @staticmethod
+    def compute_side_of_track(scp_ecf: WorldCoordinate, scp_arp: np.ndarray, scp_varp: np.ndarray) -> str:
+        """
+        This helper function computes side of track through partially calculating squint angle.
+        For squint angle reference, see Volume 1 of the SIDD Specification.
+
+        :param scp_ecf: Scene Center Point position in ECF coordinates
+        :param scp_arp: aperture reference point position
+        :param scp_varp: aperture reference point velocity
+        :return: either 'R' for right or 'L' for left
+        """
+        # Get the unit normal (UP) at ARP.
+        up = scp_arp / np.linalg.norm(scp_arp)
+        # Get the LOS vector from ARP to SCP.
+        los = scp_ecf.coordinate - scp_arp
+        # To lie in the ENU plane centered at ARP, remove the U portion.
+        los -= np.dot(los, up) * up
+        los /= np.linalg.norm(los)
+        # Also put velocity in the plane.
+        scp_varp -= np.dot(scp_varp, up) * up
+        scp_varp /= np.linalg.norm(scp_varp)
+        # The cross product from velocity to los will align UP if pointing left.
+        xprod = np.cross(scp_varp, los)
+        xprod /= np.linalg.norm(xprod)
+        if np.dot(xprod, up) >= 0:
+            return "L"
+        return "R"
+
+    @staticmethod
     def compute_u_spn(scp_ecf: WorldCoordinate, scp_arp: np.ndarray, scp_varp: np.ndarray, side_of_track: str) -> np.ndarray:
         """
         This helper function computes the slant plane normal.
@@ -1105,6 +1133,7 @@ class SICDSensorModel(SensorModel):
         # (3) Set initial ground plane position G1 to the scene point position S.
         scene_point = np.array([ecf_world_coordinate.x, ecf_world_coordinate.y, ecf_world_coordinate.z])
         g_n = scene_point.copy()
+        local_surface_projection = GroundPlaneRRDotSurfaceProjection(WorldCoordinate(scene_point), self.uvect_gpn)
 
         xrow_ycol_n = None
         cont = True
@@ -1125,7 +1154,7 @@ class SICDSensorModel(SensorModel):
             r_tgt_coa, r_dot_tgt_coa, time_coa, arp_coa, varp_coa = self.coa_projection_set.precise_rrdot_computation(
                 xrow_ycol_n
             )
-            p_n = self.default_surface_projection.rrdot_to_ground(r_tgt_coa, r_dot_tgt_coa, arp_coa, varp_coa)
+            p_n = local_surface_projection.rrdot_to_ground(r_tgt_coa, r_dot_tgt_coa, arp_coa, varp_coa)
 
             # (6) Compute the displacement between ground plane point Pn and the scene point S.
             diff_n = scene_point - p_n[0]
