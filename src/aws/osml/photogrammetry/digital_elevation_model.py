@@ -6,10 +6,12 @@
 
 import operator
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
+import numpy as np
+import numpy.typing as npt
 from cachetools import LRUCache, cachedmethod
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 
 from .coordinates import GeodeticWorldCoordinate
 from .elevation_model import ElevationModel, ElevationRegionSummary
@@ -82,6 +84,7 @@ class DigitalElevationModel(ElevationModel):
         tile_set: DigitalElevationModelTileSet,
         tile_factory: DigitalElevationModelTileFactory,
         raster_cache_size: int = 10,
+        propagate_nans: bool = True,
     ) -> None:
         """
         This constructor accepts a tile set and a tile factory which specify how to index into and
@@ -92,6 +95,7 @@ class DigitalElevationModel(ElevationModel):
         :param tile_set: DigitalElevationModelTileSet = a class used to identify the DEM tile associated with a location
         :param tile_factory: DigitalElevationModelTileFactory = a class used to load DEM tile and convert to numpy array
         :param raster_cache_size: int = the number of DEM arrays to store in memory preventing frequent loading
+        :param propagate_nans: bool = propagate missing data in elevation array
 
         :return: None
         """
@@ -99,6 +103,7 @@ class DigitalElevationModel(ElevationModel):
         self.tile_set = tile_set
         self.tile_factory = tile_factory
         self.raster_cache: LRUCache = LRUCache(maxsize=raster_cache_size)
+        self.propagate_nans = propagate_nans
         # TODO: Think about raster_cache_size parameter. This is the number of rasters we will keep open at any
         #       one time. Look at the size of those tiles and add a comment about how much memory will be used by this
         #       setting. Pick a default that is reasonable and also likely to cover most images
@@ -122,7 +127,10 @@ class DigitalElevationModel(ElevationModel):
 
         if interpolation_grid is not None and sensor_model is not None:
             image_coordinate = sensor_model.world_to_image(geodetic_world_coordinate)
-            geodetic_world_coordinate.elevation = interpolation_grid(image_coordinate.x, image_coordinate.y)[0][0]
+            elevation = interpolation_grid(image_coordinate.x, image_coordinate.y)[0][0]
+            if np.isnan(elevation):
+                return False
+            geodetic_world_coordinate.elevation = elevation
             return True
 
         # else can't set elevation without grid / model
@@ -146,7 +154,7 @@ class DigitalElevationModel(ElevationModel):
     @cachedmethod(operator.attrgetter("raster_cache"))
     def get_interpolation_grid(
         self, tile_path: str
-    ) -> Tuple[Optional[RectBivariateSpline], Optional[SensorModel], Optional[ElevationRegionSummary]]:
+    ) -> Tuple[Optional[Callable[[float, float], npt.NDArray]], Optional[SensorModel], Optional[ElevationRegionSummary]]:
         """
         This method loads and converts an array of elevation values into a class that can
         interpolate values that lie between measured elevations. The sensor model is also
@@ -167,6 +175,24 @@ class DigitalElevationModel(ElevationModel):
             elevations_array, sensor_model, summary = (None, None, None)
         if elevations_array is not None and sensor_model is not None:
             height, width = elevations_array.shape
+            if self.propagate_nans:
+                nan_mask = np.isclose(elevations_array, summary.no_data_value)
+                if nan_mask.any():
+                    elevations_array = elevations_array.astype(np.float64)
+                    elevations_array[nan_mask] = np.nan
+                    interpolator = RegularGridInterpolator((np.arange(width), np.arange(height)), elevations_array.T)
+                    xs = interpolator.grid[0][np.array([0, -1])]
+                    ys = interpolator.grid[1][np.array([0, -1])]
+
+                    def interpolation_grid(x, y):
+                        return interpolator(
+                            (
+                                np.clip(x, a_min=np.min(xs), a_max=np.max(xs)),
+                                np.clip(y, a_min=np.min(ys), a_max=np.max(ys)),
+                            )
+                        )[np.newaxis, np.newaxis, ...]
+
+                    return interpolation_grid, sensor_model, summary
             x = range(0, width)
             y = range(0, height)
             return RectBivariateSpline(x, y, elevations_array.T, kx=1, ky=1), sensor_model, summary
