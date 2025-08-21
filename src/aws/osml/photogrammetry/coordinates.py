@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 import numpy as np
 import numpy.typing as npt
@@ -78,6 +79,7 @@ class GeodeticWorldCoordinate(WorldCoordinate):
     %L        latitude in decimal radians                       1
     %l        latitude in decimal degrees                       1
     %ld       latitute degrees                                  2
+    %lD       latitude degrees rounded down                     2
     %lm       latitude minutes
     %ls       latitude seconds
     %lh       latitude hemisphere (n or s)
@@ -85,6 +87,7 @@ class GeodeticWorldCoordinate(WorldCoordinate):
     %O        longitude in decimal radians                      1
     %o        longitude in decimal degrees                      1
     %od       longitude degrees                                 2
+    %oD       longitude degrees rounded down                    2
     %om       longitude minutes
     %os       longitude seconds
     %oh       longitude hemisphere (e or w)
@@ -155,6 +158,7 @@ class GeodeticWorldCoordinate(WorldCoordinate):
             format_spec = "%ld%lm%ls%lH %od%om%os%oH %E"
 
         lat_degrees = np.degrees(self.latitude)
+        lD = int(np.abs(np.floor(lat_degrees)))
         lh = "N"
         if lat_degrees < 0:
             lat_degrees *= -1.0
@@ -164,6 +168,7 @@ class GeodeticWorldCoordinate(WorldCoordinate):
         ls = int(round(lat_degrees - ld - lm / 60, 6) * 3600)
 
         lon_degrees = np.degrees(self.longitude)
+        oD = int(np.abs(np.floor(lon_degrees)))
         oh = "E"
         if lon_degrees < 0:
             lon_degrees *= -1.0
@@ -183,11 +188,13 @@ class GeodeticWorldCoordinate(WorldCoordinate):
                 elif directive == "O":
                     result.append(str(self.longitude))
                 elif directive == "l":
-                    if (i + 1) < len(format_spec) and format_spec[i + 1] in ["d", "m", "s", "h", "H"]:
+                    if (i + 1) < len(format_spec) and format_spec[i + 1] in ["d", "D", "m", "s", "h", "H"]:
                         i += 1
                         part = format_spec[i]
                         if part == "d":
                             result.append(format(ld, "02d"))
+                        elif part == "D":
+                            result.append(format(lD, "02d"))
                         elif part == "m":
                             result.append(format(lm, "02d"))
                         elif part == "s":
@@ -200,11 +207,13 @@ class GeodeticWorldCoordinate(WorldCoordinate):
                     else:
                         result.append(str(lat_degrees))
                 elif directive == "o":
-                    if (i + 1) < len(format_spec) and format_spec[i + 1] in ["d", "m", "s", "h", "H"]:
+                    if (i + 1) < len(format_spec) and format_spec[i + 1] in ["d", "D", "m", "s", "h", "H"]:
                         i += 1
                         part = format_spec[i]
                         if part == "d":
                             result.append(format(od, "03d"))
+                        elif part == "D":
+                            result.append(format(oD, "03d"))
                         elif part == "m":
                             result.append(format(om, "02d"))
                         elif part == "s":
