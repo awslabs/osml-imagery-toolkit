@@ -1,5 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
-#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
+#  Copyright 2025-2026 General Atomics Integrated Intelligence, Inc.
 
 import logging
 from abc import ABC, abstractmethod
@@ -59,6 +59,10 @@ class SensorModelOptions(str, Enum):
     included here to encourage convention.
     """
 
+    EXCEPTION_ON_FAILURE = "exception_on_failure"
+    FALLBACK_INITIAL_GUESS = "fallback_initial_guess"
+    FORCE_INITIAL_GUESS = "force_initial_guess"
+    IGNORE_DEFAULT_ELEVATION_MODEL = "ignore_default_elevation_model"
     INITIAL_GUESS = "initial_guess"
     INITIAL_SEARCH_DISTANCE = "initial_search_distance"
-    IGNORE_DEFAULT_ELEVATION_MODEL = "ignore_default_elevation_model"
+    MIN_SUCCESS_DISTANCE_PIXELS = "min_success_distance_pixels"
