@@ -64,6 +64,7 @@ APIs
 from .gdal_config import GDALConfigEnv, set_gdal_default_configuration
 from .gdal_dem_tile_factory import GDALDigitalElevationModelTileFactory
 from .gdal_offset_provider import GDALOffsetProvider
+from .gdal_shapefile_query import GDALShapefileQuery
 from .gdal_utils import get_image_extension, get_type_and_scales, load_gdal_dataset
 from .nitf_des_accessor import NITFDESAccessor
 from .sensor_model_factory import ChippedImageInfoFacade, SensorModelFactory, SensorModelTypes
@@ -79,6 +80,7 @@ __all__ = [
     "GDALDigitalElevationModelTileFactory",
     "GDALImageFormats",
     "GDALOffsetProvider",
+    "GDALShapefileQuery",
     "RangeAdjustmentType",
     "NITFDESAccessor",
     "ChippedImageInfoFacade",
