@@ -123,6 +123,7 @@ from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRe
 from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
 from .gdal_sensor_model import GDALAffineSensorModel
 from .generic_dem_tile_set import GenericDEMTileSet
+from .geometry_query import GeometryQuery
 from .multi_elevation_model import MultiElevationModel
 from .offset_elevation_model import OffsetElevationModel
 from .projective_sensor_model import ProjectiveSensorModel
@@ -163,6 +164,7 @@ __all__ = [
     "GDALAffineSensorModel",
     "GenericDEMTileSet",
     "GeodeticWorldCoordinate",
+    "GeometryQuery",
     "INCAProjectionSet",
     "ImageCoordinate",
     "MultiElevationModel",
