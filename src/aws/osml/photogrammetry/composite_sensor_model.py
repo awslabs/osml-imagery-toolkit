@@ -1,6 +1,6 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
-import math
 from typing import Any, Dict, Optional
 
 from .coordinates import GeodeticWorldCoordinate, ImageCoordinate
@@ -52,7 +52,6 @@ class CompositeSensorModel(SensorModel):
             approximate_coord.longitude,
             approximate_coord.latitude,
         ]
-        updated_options[SensorModelOptions.INITIAL_SEARCH_DISTANCE] = math.radians(0.005)
         return self.precision_sensor_model.image_to_world(
             image_coordinate, elevation_model=elevation_model, options=updated_options
         )
