@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 import numpy as np
 import numpy.typing as npt
@@ -224,6 +225,74 @@ class GeodeticWorldCoordinate(WorldCoordinate):
                 result.append(format_spec[i])
             i += 1
         return "".join(result)
+
+    def normalized(self) -> "GeodeticWorldCoordinate":
+        """
+        Return a new GeodeticWorldCoordinate that normalizes latitude between -90 / 90 and longitude between -180 / 180.
+
+        :return: the new geodetic world coordinate
+        """
+        lon = self.longitude
+        # Normalize latitude to -180 to 180 first.
+        lat = (self.latitude + np.pi) % (2 * np.pi) - np.pi
+        # Adjust to -90 to 90 if needed, rotating longitude.
+        if np.abs(lat) > np.pi / 2:
+            lat = np.sign(lat) * np.pi - lat
+            lon += np.pi
+        # Normalize longitude to -180 to 180.
+        lon = (lon + np.pi) % (2 * np.pi) - np.pi
+        return self.__class__(
+            (
+                lon,
+                lat,
+                self.elevation,
+            ),
+        )
+
+    def range_adjusted(self, min_lon: float, max_lon: float, min_lat: float, max_lat: float) -> "GeodeticWorldCoordinate":
+        """
+        Return a new GeodeticWorldCoordinate that normalizes latitude and longitude between user input ranges.
+
+        :param min_lon: the lower bound, in radians, of the new longitude range
+        :param max_lon: the upper bound, in radians, of the new longitude range
+        :param min_lat: the lower bound, in radians, of the new latitude range
+        :param max_lat: the upper bound, in radians, of the new latitude range
+
+        :return: the new geodetic world coordinate
+        """
+        wc = self.normalized()
+        lat = wc.latitude
+        lon = wc.longitude
+        # Adjust longitude by 360 amount to barely pass min_lon.
+        lon += np.ceil((min_lon - lon) / (2 * np.pi)) * 2 * np.pi
+        if lon > max_lon:
+            # Last shot is flipping latitude.
+            lon -= np.pi
+            if lon < min_lon:
+                raise ValueError(f"{self.longitude} not in {min_lon}:{max_lon}.")
+            # else
+            lat += np.pi
+        # For latitude, first try 360 normalization.
+        tlat = lat + np.ceil((min_lat - lat) / (2 * np.pi)) * 2 * np.pi
+        if tlat > max_lat:
+            # If that fails, check changing sides.
+            lon += np.pi
+            if lon > max_lon:
+                raise ValueError(f"({self.longitude}, {self.latitude}) not in ({min_lon}:{max_lon}, {min_lat}:{max_lat}).")
+            # else
+            lat -= np.pi
+            lat += np.ceil((min_lat - lat) / (2 * np.pi)) * 2 * np.pi
+            if lat > max_lat:
+                raise ValueError(f"{self.latitude} not in {min_lat}:{max_lat}.")
+        else:
+            lat = tlat
+        return self.__class__(
+            (
+                lon,
+                lat,
+                wc.elevation,
+            ),
+        )
 
 
 # These are common definitions of projections used by Pyproj. They are used when converting between an Earth Centered
