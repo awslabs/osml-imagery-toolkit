@@ -1,4 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
 
 from abc import ABC
 from enum import Enum
@@ -503,6 +504,8 @@ class RSMPolynomialSensorModel(RSMSensorModel):
         :return: the corresponding world coordinate
         """
 
+        options = options if options is not None else {}
+
         # This is the function we will be minimizing. Given a longitude, latitude coordinate we invoke the
         # world_to_image function to get a projection of that location in the image. Then we compute the
         # distance between that new image location and the input image location. When those locations match then
@@ -522,43 +525,56 @@ class RSMPolynomialSensorModel(RSMSensorModel):
         # at the center of the ground domain.
         v1 = self.context.ground_domain.geodetic_ground_domain_vertices[0]
         v4 = self.context.ground_domain.geodetic_ground_domain_vertices[3]
-        initial_guess = options.get(SensorModelOptions.INITIAL_GUESS) if options is not None else None
-        if initial_guess is None:
-            initial_guess = np.array([(v1.longitude + v4.longitude) / 2.0, (v1.latitude + v4.latitude) / 2.0])
+        initial_guess = options.get(
+            SensorModelOptions.INITIAL_GUESS,
+            np.array([(v1.longitude + v4.longitude) / 2.0, (v1.latitude + v4.latitude) / 2.0]),
+        )
         if isinstance(initial_guess, List):
             initial_guess = np.array(initial_guess)
 
-        initial_search_distance = options.get(SensorModelOptions.INITIAL_SEARCH_DISTANCE) if options is not None else None
-        if initial_search_distance is None:
-            initial_search_distance = sqrt(((v1.longitude - v4.longitude) ** 2) + ((v1.latitude - v4.latitude) ** 2))
+        if options.get(SensorModelOptions.FORCE_INITIAL_GUESS, False) is True:
+            world_coordinate = GeodeticWorldCoordinate(np.append(initial_guess, 0.0))
+        else:
+            initial_search_distance = options.get(
+                SensorModelOptions.INITIAL_SEARCH_DISTANCE,
+                sqrt(((v1.longitude - v4.longitude) ** 2) + ((v1.latitude - v4.latitude) ** 2)),
+            )
 
-        # Iteratively adjust the initial guess to minimize the distance to the target image coordinate. We are only
-        # allowing the x,y components to vary here and the z is fixed to the elevation model used by the ground
-        # domain. The starting simplex is estimated as a triangle centered in the ground domain.
-        res = minimize(
-            distance_to_target_coordinate,
-            initial_guess,
-            method="Nelder-Mead",
-            bounds=[
-                (
-                    self.context.ground_domain.geodetic_lonlat_bbox[0],
-                    self.context.ground_domain.geodetic_lonlat_bbox[2],
-                ),
-                (
-                    self.context.ground_domain.geodetic_lonlat_bbox[1],
-                    self.context.ground_domain.geodetic_lonlat_bbox[3],
-                ),
-            ],
-            options={
-                "xatol": radians(0.000001),
-                "fatol": 0.5,
-                "initial_simplex": equilateral_triangle(initial_guess.tolist(), initial_search_distance),
-            },
-        )
+            # Iteratively adjust the initial guess to minimize the distance to the target image coordinate. We are only
+            # allowing the x,y components to vary here and the z is fixed to the elevation model used by the ground
+            # domain. The starting simplex is estimated as a triangle centered in the ground domain.
+            res = minimize(
+                distance_to_target_coordinate,
+                initial_guess,
+                method="Nelder-Mead",
+                bounds=[
+                    (
+                        self.context.ground_domain.geodetic_lonlat_bbox[0],
+                        self.context.ground_domain.geodetic_lonlat_bbox[2],
+                    ),
+                    (
+                        self.context.ground_domain.geodetic_lonlat_bbox[1],
+                        self.context.ground_domain.geodetic_lonlat_bbox[3],
+                    ),
+                ],
+                options={
+                    "xatol": radians(0.000001),
+                    "fatol": 0.5,
+                    "initial_simplex": equilateral_triangle(initial_guess.tolist(), initial_search_distance),
+                },
+            )
 
-        # The minimization result is a (longitude,latitude) tuple, so we need to expand it to
-        # longitude,latitude,elevation and replace the z component with the height from the elevation model.
-        world_coordinate = GeodeticWorldCoordinate(np.append(res.x, 0.0))
+            # The minimization result is a (longitude,latitude) tuple, so we need to expand it to
+            # longitude,latitude,elevation and replace the z component with the height from the elevation model.
+            world_coordinate = GeodeticWorldCoordinate(np.append(res.x, 0.0))
+            success = res.success
+            min_dist = options.get(SensorModelOptions.MIN_SUCCESS_DISTANCE_PIXELS, 1.0)
+            if not success or distance_to_target_coordinate(world_coordinate.coordinate[:2]) > min_dist:
+                if options.get(SensorModelOptions.FALLBACK_INITIAL_GUESS, False) is True:
+                    world_coordinate = GeodeticWorldCoordinate(np.append(initial_guess, 0.0))
+                elif options.get(SensorModelOptions.EXCEPTION_ON_FAILURE, False) is True:
+                    raise RuntimeError(f"{self.__class__.__name__} failed to converge.")
+
         self.context.ground_domain.default_elevation_model.set_elevation(world_coordinate)
         if elevation_model:
             elevation_model.set_elevation(world_coordinate)
