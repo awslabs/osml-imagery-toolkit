@@ -119,6 +119,7 @@ from .coordinates import (
     geocentric_to_geodetic,
     geodetic_to_geocentric,
 )
+from .defaulted_sensor_model import DefaultedSensorModel
 from .digital_elevation_model import DigitalElevationModel, DigitalElevationModelTileFactory, DigitalElevationModelTileSet
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
 from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
