@@ -3,12 +3,12 @@
 
 from abc import ABC
 from enum import Enum
-from math import floor, pi, radians, sqrt
+from math import floor, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-from scipy.optimize import minimize
 
+from . import eim_registry
 from .coordinates import (
     GeodeticWorldCoordinate,
     ImageCoordinate,
@@ -16,8 +16,8 @@ from .coordinates import (
     geocentric_to_geodetic,
     geodetic_to_geocentric,
 )
+from .eim_neldermead import EIMNelderMead
 from .elevation_model import ConstantElevationModel, ElevationModel
-from .math_utils import equilateral_triangle
 from .multi_elevation_model import MultiElevationModel
 from .normalized_elevation_model import NormalizedElevationModel
 from .sensor_model import SensorModel, SensorModelOptions
@@ -471,6 +471,7 @@ class RSMPolynomialSensorModel(RSMSensorModel):
         self.row_denominator_poly = row_denominator_poly
         self.column_numerator_poly = column_numerator_poly
         self.column_denominator_poly = column_denominator_poly
+        self.default_solver = EIMNelderMead()
 
     def world_to_image(self, geodetic_coordinate: GeodeticWorldCoordinate) -> ImageCoordinate:
         """
@@ -522,7 +523,10 @@ class RSMPolynomialSensorModel(RSMSensorModel):
         # world_to_image function to get a projection of that location in the image. Then we compute the
         # distance between that new image location and the input image location. When those locations match then
         # we know we have the world coordinate that corresponds to the input.
-        def distance_to_target_coordinate(lonlat_coord: Tuple[float, float]) -> float:
+        def distance_to_target_coordinate(
+            lonlat_coord: Tuple[float, float],
+            elevation_model: ElevationModel,
+        ) -> float:
             current_world_coordinate = GeodeticWorldCoordinate([lonlat_coord[0], lonlat_coord[1], 0.0])
             elevation_model.set_elevation(current_world_coordinate)
             new_image_coordinate = self.world_to_image(current_world_coordinate)
@@ -549,6 +553,7 @@ class RSMPolynomialSensorModel(RSMSensorModel):
 
         if options.get(SensorModelOptions.FORCE_INITIAL_GUESS, False) is True:
             world_coordinate = GeodeticWorldCoordinate(np.append(initial_guess, 0.0))
+            elevation_model.set_elevation(world_coordinate)
         else:
             initial_search_distance = options.get(
                 SensorModelOptions.INITIAL_SEARCH_DISTANCE,
@@ -557,42 +562,38 @@ class RSMPolynomialSensorModel(RSMSensorModel):
 
             # Iteratively adjust the initial guess to minimize the distance to the target image coordinate. We are only
             # allowing the x,y components to vary here and the z is fixed to the elevation model used by the ground
-            # domain. The starting simplex is estimated as a triangle centered in the ground domain.
-            res = minimize(
-                distance_to_target_coordinate,
-                initial_guess,
-                method="Nelder-Mead",
-                bounds=[
-                    (
-                        self.context.ground_domain.geodetic_lonlat_bbox[0],
-                        self.context.ground_domain.geodetic_lonlat_bbox[2],
-                    ),
-                    (
-                        self.context.ground_domain.geodetic_lonlat_bbox[1],
-                        self.context.ground_domain.geodetic_lonlat_bbox[3],
-                    ),
-                ],
-                options={
-                    "xatol": radians(0.000001),
-                    "fatol": 0.5,
-                    "initial_simplex": equilateral_triangle(initial_guess.tolist(), initial_search_distance),
-                },
+            # domain.
+            solver = self.default_solver
+            if options is not None:
+                solver_name = options.get(SensorModelOptions.EARTH_INTERSECTION_MINIMIZER)
+                if solver_name is not None:
+                    solver = eim_registry.get(solver_name)
+            world_coordinate, success = solver.solve(
+                minimization_function=distance_to_target_coordinate,
+                elevation_model=elevation_model,
+                initial_guess=initial_guess,
+                search_distance=initial_search_distance,
+                lon_bounds=(
+                    self.context.ground_domain.geodetic_lonlat_bbox[0],
+                    self.context.ground_domain.geodetic_lonlat_bbox[2],
+                ),
+                lat_bounds=(
+                    self.context.ground_domain.geodetic_lonlat_bbox[1],
+                    self.context.ground_domain.geodetic_lonlat_bbox[3],
+                ),
+                height_bounds=(
+                    self.z_norm_offset - self.z_norm_scale,
+                    self.z_norm_offset + self.z_norm_scale,
+                ),
             )
 
-            # The minimization result is a (longitude,latitude) tuple, so we need to expand it to
-            # longitude,latitude,elevation and replace the z component with the height from the elevation model.
-            world_coordinate = GeodeticWorldCoordinate(np.append(res.x, 0.0))
-            success = res.success
             min_dist = options.get(SensorModelOptions.MIN_SUCCESS_DISTANCE_PIXELS, 1.0)
-            if not success or distance_to_target_coordinate(world_coordinate.coordinate[:2]) > min_dist:
+            if not success or distance_to_target_coordinate(world_coordinate.coordinate[:2], elevation_model) > min_dist:
                 if options.get(SensorModelOptions.FALLBACK_INITIAL_GUESS, False) is True:
                     world_coordinate = GeodeticWorldCoordinate(np.append(initial_guess, 0.0))
+                    elevation_model.set_elevation(world_coordinate)
                 elif options.get(SensorModelOptions.EXCEPTION_ON_FAILURE, False) is True:
                     raise RuntimeError(f"{self.__class__.__name__} failed to converge.")
-
-        # The minimization result is a (longitude,latitude) tuple, so we need to expand it to
-        # longitude,latitude,elevation and replace the z component with the height from the elevation model.
-        elevation_model.set_elevation(world_coordinate)
 
         return world_coordinate.normalized()
 

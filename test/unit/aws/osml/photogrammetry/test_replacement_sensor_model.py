@@ -139,6 +139,16 @@ class TestMathUtils(unittest.TestCase):
         image_coordinate = ImageCoordinate([100.0 * radians(5.0), 100.0 * radians(5.0)])
         initial_guess = [radians(5.1), radians(5.1)]
 
+        # Test explicit solver.
+        new_world_coordinate = self.sample_polynomial_sensor_model.image_to_world(
+            image_coordinate,
+            options={
+                SensorModelOptions.INITIAL_GUESS: initial_guess,
+                SensorModelOptions.EARTH_INTERSECTION_MINIMIZER: "neldermead",
+            },
+        )
+        assert np.allclose([radians(5.0), radians(5.0), 0.0], new_world_coordinate.coordinate)
+
         # Test forcing the initial guess.
         new_world_coordinate = self.sample_polynomial_sensor_model.image_to_world(
             image_coordinate,

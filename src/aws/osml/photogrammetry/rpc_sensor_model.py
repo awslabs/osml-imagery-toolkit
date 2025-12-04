@@ -5,7 +5,6 @@ from math import degrees, radians, sqrt
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-from scipy.optimize import minimize
 
 from . import (
     ConstantElevationModel,
@@ -14,8 +13,9 @@ from . import (
     ImageCoordinate,
     MultiElevationModel,
     WorldCoordinate,
+    eim_registry,
 )
-from .math_utils import equilateral_triangle
+from .eim_neldermead import EIMNelderMead
 from .sensor_model import SensorModel, SensorModelOptions
 
 
@@ -155,6 +155,7 @@ class RPCSensorModel(SensorModel):
         self.samp_numerator_poly = samp_num_poly
         self.samp_denominator_poly = samp_den_poly
         self.default_elevation_model = ConstantElevationModel(self.height_off)
+        self.default_solver = EIMNelderMead()
 
     def world_to_image(self, geodetic_coordinate: GeodeticWorldCoordinate) -> ImageCoordinate:
         """
@@ -218,7 +219,10 @@ class RPCSensorModel(SensorModel):
         # ground_domain_to_image function to get a projection of that location in the image. Then we compute the
         # distance between that new image location and the input image location. When those locations match then
         # we know we have the ground domain coordinate that corresponds to the input.
-        def distance_to_target_coordinate(lonlat_coord: Tuple[float, float]) -> float:
+        def distance_to_target_coordinate(
+            lonlat_coord: Tuple[float, float],
+            elevation_model: ElevationModel,
+        ) -> float:
             ground_domain_coordinate = GeodeticWorldCoordinate([lonlat_coord[0], lonlat_coord[1], 0.0])
             elevation_model.set_elevation(ground_domain_coordinate)
             new_image_coordinate = self.world_to_image(ground_domain_coordinate)
@@ -237,36 +241,34 @@ class RPCSensorModel(SensorModel):
 
         if options.get(SensorModelOptions.FORCE_INITIAL_GUESS, False) is True:
             world_coordinate = GeodeticWorldCoordinate(np.append(initial_guess, 0.0))
+            elevation_model.set_elevation(world_coordinate)
         else:
             initial_search_distance = options.get(SensorModelOptions.INITIAL_SEARCH_DISTANCE, radians(0.5))
 
             # Iteratively adjust the initial guess to minimize the distance to the target image coordinate. We are only
-            # allowing the x,y components to vary here and the z is fixed to the elevation model. The starting simplex
-            # is estimated as a triangle centered on the normalization offsets for this RPC.
-            res = minimize(
-                distance_to_target_coordinate,
-                initial_guess,
-                method="Nelder-Mead",
-                options={
-                    "xatol": radians(0.000001),
-                    "fatol": 0.5,
-                    "initial_simplex": equilateral_triangle(initial_guess.tolist(), initial_search_distance),
-                },
+            # allowing the x,y components to vary here and the z is fixed to the elevation model.
+            solver = self.default_solver
+            if options is not None:
+                solver_name = options.get(SensorModelOptions.EARTH_INTERSECTION_MINIMIZER)
+                if solver_name is not None:
+                    solver = eim_registry.get(solver_name)
+            world_coordinate, success = solver.solve(
+                minimization_function=distance_to_target_coordinate,
+                elevation_model=elevation_model,
+                initial_guess=initial_guess,
+                search_distance=initial_search_distance,
+                height_bounds=(
+                    self.height_off - self.height_scale,
+                    self.height_off + self.height_scale,
+                ),
             )
 
-            # The minimization result is an (x,y) tuple, so we need to expand it to x,y,z and replace the z component with
-            # the height from the elevation model. Note that the units of this are radians, radians, meters
-            world_coordinate = GeodeticWorldCoordinate(np.append(res.x, 0.0))
-            success = res.success
             min_dist = options.get(SensorModelOptions.MIN_SUCCESS_DISTANCE_PIXELS, 1.0)
-            if not success or distance_to_target_coordinate(world_coordinate.coordinate[:2]) > min_dist:
+            if not success or distance_to_target_coordinate(world_coordinate.coordinate[:2], elevation_model) > min_dist:
                 if options.get(SensorModelOptions.FALLBACK_INITIAL_GUESS, False) is True:
                     world_coordinate = GeodeticWorldCoordinate(np.append(initial_guess, 0.0))
+                    elevation_model.set_elevation(world_coordinate)
                 elif options.get(SensorModelOptions.EXCEPTION_ON_FAILURE, False) is True:
                     raise RuntimeError(f"{self.__class__.__name__} failed to converge.")
-
-        # The minimization result is an (x,y) tuple, so we need to expand it to x,y,z and replace the z component with
-        # the height from the elevation model. Note that the units of this are radians, radians, meters
-        elevation_model.set_elevation(world_coordinate)
 
         return world_coordinate

@@ -59,6 +59,7 @@ class SensorModelOptions(str, Enum):
     included here to encourage convention.
     """
 
+    EARTH_INTERSECTION_MINIMIZER = "earth_intersection_minimizer"
     EXCEPTION_ON_FAILURE = "exception_on_failure"
     FALLBACK_INITIAL_GUESS = "fallback_initial_guess"
     FORCE_INITIAL_GUESS = "force_initial_guess"

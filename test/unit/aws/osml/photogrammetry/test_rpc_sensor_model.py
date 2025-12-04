@@ -78,6 +78,17 @@ class TestRPCSensorModel(unittest.TestCase):
         image_coordinate = ImageCoordinate((5.0, 3.0))
         initial_guess = [radians(5.1), radians(3.1)]
 
+        # Test explicit solver.
+        new_world_coordinate = self.sample_rpc_sensor_model.image_to_world(
+            image_coordinate,
+            elevation_model=elevation_model,
+            options={
+                SensorModelOptions.INITIAL_GUESS: initial_guess,
+                SensorModelOptions.EARTH_INTERSECTION_MINIMIZER: "neldermead",
+            },
+        )
+        assert np.allclose([radians(5.0), radians(3.0), 42.0], new_world_coordinate.coordinate)
+
         # Test forcing the initial guess.
         new_world_coordinate = self.sample_rpc_sensor_model.image_to_world(
             image_coordinate,
