@@ -1,5 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
-#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
+#  Copyright 2025-2026 General Atomics Integrated Intelligence, Inc.
 
 # Telling flake8 to not flag errors in this file. It is normal that these classes are imported but not used in an
 # __init__.py file.
@@ -109,6 +109,9 @@ APIs
 
 """
 
+from .bounded_neldermead_solver import BoundedNelderMeadSolver
+from .bounded_raymarch_solver import BoundedRayMarchSolver
+from .bounded_solver import BoundedSolver, GenericBoundedSolver
 from .chipped_image_sensor_model import ChippedImageSensorModel
 from .composite_sensor_model import CompositeSensorModel
 from .conditional_elevation_model import ConditionalElevationModel
@@ -153,9 +156,13 @@ from .sicd_sensor_model import (
     SARImageCoordConverter,
     SICDSensorModel,
 )
+from .solver import Solver
 from .srtm_dem_tile_set import SRTMTileSet
 
 __all__ = [
+    "BoundedNelderMeadSolver",
+    "BoundedRayMarchSolver",
+    "BoundedSolver",
     "ChippedImageSensorModel",
     "CompositeSensorModel",
     "ConditionalElevationModel",
@@ -169,6 +176,7 @@ __all__ = [
     "ElevationModelCondition",
     "ElevationRegionSummary",
     "GDALAffineSensorModel",
+    "GenericBoundedSolver",
     "GenericDEMTileSet",
     "GeodeticWorldCoordinate",
     "INCAProjectionSet",
@@ -195,6 +203,7 @@ __all__ = [
     "SRTMTileSet",
     "SensorModel",
     "SensorModelOptions",
+    "Solver",
     "WorldCoordinate",
     "geocentric_to_geodetic",
     "geodetic_to_geocentric",

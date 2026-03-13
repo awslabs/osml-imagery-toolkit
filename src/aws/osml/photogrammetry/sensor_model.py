@@ -1,11 +1,12 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
-#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
+#  Copyright 2025-2026 General Atomics Integrated Intelligence, Inc.
 
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
+from .bounded_solver import BoundedSolver
 from .coordinates import GeodeticWorldCoordinate, ImageCoordinate
 from .elevation_model import ElevationModel
 
@@ -62,3 +63,13 @@ class SensorModelOptions(str, Enum):
     INITIAL_GUESS = "initial_guess"
     INITIAL_SEARCH_DISTANCE = "initial_search_distance"
     IGNORE_DEFAULT_ELEVATION_MODEL = "ignore_default_elevation_model"
+    BOUNDED_SOLVER = "bounded_solver"
+
+    @classmethod
+    def register_bounded_solver(cls, name: str, solver: Type[BoundedSolver]):
+        if name in cls.BOUNDED_SOLVERS:
+            raise ValueError(f"Solver with name '{name}' already exists.")
+        cls.BOUNDED_SOLVERS[name] = solver
+
+
+SensorModelOptions.BOUNDED_SOLVERS = {}
