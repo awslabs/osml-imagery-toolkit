@@ -124,6 +124,7 @@ from .digital_elevation_model import DigitalElevationModel, DigitalElevationMode
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
 from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
 from .em_condition import ElevationModelCondition, EMConditionFalse, EMConditionTrue
+from .em_condition_intersects import EMConditionIntersects
 from .gdal_sensor_model import GDALAffineSensorModel
 from .generic_dem_tile_set import GenericDEMTileSet
 from .geometry_query import GeometryQuery
