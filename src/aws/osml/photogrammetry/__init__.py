@@ -136,6 +136,7 @@ from .digital_elevation_model import DigitalElevationModel, DigitalElevationMode
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
 from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
 from .em_condition import ElevationModelCondition, EMConditionFalse, EMConditionTrue
+from .em_condition_intersects import EMConditionIntersects
 from .generic_dem_tile_set import GenericDEMTileSet
 from .geometry_query import GeometryQuery
 from .multi_elevation_model import MultiElevationModel
@@ -177,6 +178,7 @@ __all__ = [
     "DigitalElevationModelTileFactory",
     "DigitalElevationModelTileSet",
     "EMConditionFalse",
+    "EMConditionIntersects",
     "EMConditionTrue",
     "ElevationModel",
     "ElevationModelCondition",
