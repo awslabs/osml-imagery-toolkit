@@ -6,55 +6,53 @@
 """
 The image_processing package contains various utilities for manipulating overhead imagery.
 
-Image Tiling: Tiling With Updated Image Metadata
-************************************************
+Image Chipping: Chips With Updated Image Metadata
+**************************************************
 
-Many applications break large remote sensing images into smaller chips or tiles for distributed processing or
-dissemination. GDAL's Translate function provides basic capabilities, but it does not correctly update geospatial
-metadata to reflect the new image extent. These utilities provide those functions so tile consumers can correctly
-interpret the pixel information they have been provided.
+Many applications break large remote sensing images into smaller chips for distributed processing or
+dissemination. These utilities extract arbitrary sub-regions and derive updated geospatial metadata
+(ICHIPB, IGEOLO, GeoTransform, SICD/SIDD XML) so chip consumers can correctly interpret the pixel
+information they have been provided.
 
 .. code-block:: python
-    :caption: Example showing creation of a NITF tile from the upper left corner of an image
+    :caption: Example showing creation of a NITF chip from the upper left corner of an image
 
-    # Load the image and create a sensor model
-    ds, sensor_model = load_gdal_dataset("./imagery/sample.nitf")
-    tile_factory = GDALTileFactory(ds,
-                                   sensor_model,
-                                   GDALImageFormats.NITF,
-                                   GDALCompressionOptions.NONE
-                                   )
+    from aws.osml.io import IO
+    from aws.osml.image_processing import ChipFactory, TiledImagePyramid, PixelWindow
 
-    # Bounds are [left_x, top_y, width, height]
-    nitf_encoded_tile_bytes = tile_factory.create_encoded_tile([0, 0, 1024, 1024])
+    with IO.open("./imagery/sample.nitf", "r") as reader:
+        pyramid = TiledImagePyramid.from_dataset(reader)
+        chip_factory = ChipFactory(source=pyramid, output_format="nitf")
+        nitf_encoded_chip_bytes = chip_factory.create_chip(PixelWindow(0, 0, 1024, 1024))
 
 
-Image Tiling: Tiles for Display
-*******************************
+Image Chipping: Chips for Display
+**********************************
 
 Some images, for example 11-bit panchromatic images or SAR imagery with floating point complex data, can not be
-displayed directly without remapping the pixels into an 8-bit per pixel grayscale or RGB color model. The TileFactory
-supports creation of tiles suitable for human review by setting both the output_type and range_adjustment options.
-Note that the output_size parameter can be used to generate lower resolution tiles. This operation will make use of
-GDAL generated overviews if they are available to the dataset.
+displayed directly without remapping the pixels into an 8-bit per pixel grayscale or RGB color model. The ChipFactory
+supports creation of chips suitable for human review by attaching a processing chain.
+Note that the output_size parameter can be used to generate lower resolution chips. This operation will make use of
+pyramid overviews if they are available.
 
 .. code-block:: python
-    :caption: Example showing creation of a PNG tile scaled down from the full resolution image
+    :caption: Example showing creation of a PNG chip scaled down from the full resolution image
 
-    viz_tile_factory = GDALTileFactory(ds,
-                                       sensor_model,
-                                       GDALImageFormats.PNG,
-                                       GDALCompressionOptions.NONE,
-                                       output_type=gdalconst.GDT_Byte,
-                                       range_adjustment=RangeAdjustmentType.DRA)
+    from aws.osml.image_processing import ChipFactory, DisplayChainFactory, ImageSize
 
-    viz_tile = viz_tile_factory.create_encoded_tile([0, 0, 1024, 1024], output_size=(512, 512))
+    chain = DisplayChainFactory.build(source)
+    chip_factory = ChipFactory(
+        source=pyramid,
+        output_format="png",
+        processing_chain=chain,
+    )
+    viz_chip = chip_factory.create_chip(PixelWindow(0, 0, 1024, 1024), output_size=ImageSize(512, 512))
 
-Image Tiling: Map Tiles / Orthophotos
-*************************************
+Image Chipping: Map Tiles / Orthophotos
+****************************************
 
-The TileFactory supports creation of tiles suitable for use by geographic information systems (GIS) or map-based
-visualization tools. Given a north-east aligned bounding box in geographic coordinates the tile factory can use
+The ChipFactory supports creation of chips suitable for use by geographic information systems (GIS) or map-based
+visualization tools. Given a north-east aligned bounding box in geographic coordinates the chip factory can use
 the sensor models to orthorectify imagery to remove the perspective and terrain effects.
 
 .. code-block:: python
@@ -65,54 +63,38 @@ the sensor models to orthorectify imagery to remove the perspective and terrain 
     tile_id = MapTileId(tile_matrix=16, tile_row=37025, tile_col=54816)
     tile = tile_set.get_tile(tile_id)
 
-    # Create an orthophoto for this tile
-    image_bytes = viz_tile_factory.create_orthophoto_tile(geo_bbox=tile.bounds, tile_size=tile.size)
-
-.. figure:: ../images/MapTileExample-BeforeAfter.png
-    :width: 600
-    :alt: Original image with perspective effects and same area after orthorectification
-
-    Example showing original image with perspective effects and same area after orthorectification.
-
-.. figure:: ../images/MapTileExample-MapOverlay.png
-    :width: 400
-    :alt: Orthophoto tile overlaid on Google Maps
-
-    Example showing map tile overlaid on Google Maps
+    # Orthorectify and warp pixels into the tile's geographic extent
+    grid_builder = OrthoGridBuilder(sensor_model=sensor_model, ...)
+    warped = WarpedImageProvider(source, grid_builder)
 
 Complex SAR Data Display
 ************************
 
-There are a variety of different techniques to convert complex SAR data to a simple image suitable for human display.
-The toolkit contains two helper functions that can convert complex image data into an 8-bit grayscle representation
-The equations implemented are described in Sections 3.1 and 3.2 of SAR Image Scaling, Dynamic Range, Radiometric
-Calibration, and Display (SAND2019-2371).
+Complex SAR imagery (I/Q data) must be remapped to scalar magnitude before display. The
+:func:`is_complex` utility detects complex assets, and :class:`ComplexRemapFactory` wraps them in a
+:class:`MappedImageProvider` that performs a domain transform (complex I/Q → scalar magnitude).
+The resulting scalar data can then be processed through the standard DRA-based display pipeline.
 
 .. code-block:: python
-    :caption: Example converting complex SAR data into a 8-bit per pixel image for display
+    :caption: Example converting complex SAR data for display via ComplexRemapFactory
 
-    import numpy as np
-    from aws.osml.image_processing import histogram_stretch, quarter_power_image
+    from aws.osml.io import IO
+    from aws.osml.image_processing import (
+        is_complex,
+        ComplexRemapFactory,
+        DisplayChainFactory,
+        TiledImagePyramid,
+        compute_image_statistics,
+    )
 
-    sicd_dataset, sensor_model = load_gdal_dataset("./sample-sicd.nitf")
-    complex_pixels = sicd_dataset.ReadAsArray()
+    with IO.open("./sample-sicd.nitf", "r") as reader:
+        asset = reader.get_asset("image:0")
+        if is_complex(asset):
+            remapped = ComplexRemapFactory.build(asset, band_interpretation=["real", "imaginary"])
+            pyramid = TiledImagePyramid.from_asset(remapped)
+            stats = compute_image_statistics(remapped)
+            chain = DisplayChainFactory.build(remapped, stats=stats)
 
-    histo_stretch_pixels = histogram_stretch(complex_pixels)
-    quarter_power_pixels = quarter_power_image(complex_pixels)
-
-
-.. figure:: ../images/SAR-HistogramStretchImage.png
-   :width: 400
-   :alt: Histogram Stretch Applied to Sample SICD Image
-
-   Example of applying histogram_stretch to a sample SICD image.
-
-
-.. figure:: ../images/SAR-QuarterPowerImage.png
-   :width: 400
-   :alt: Quarter Power Image Applied to Sample SICD Image
-
-   Example of applying quarter_power_image to a sample SICD image.
 
 
 -------------------------
@@ -121,19 +103,135 @@ APIs
 ****
 """
 
-from .gdal_tile_factory import GDALTileFactory
+from .block_utils import read_block_or_pad, read_window, stitch_source_blocks
+from .cached_provider import CachedImageProvider
+from .color_space import color_space_transform
+from .convolution import sips_convolve, sips_correlate
+from .display_chain_factory import DisplayChainFactory
+from .downsampled_provider import DownsampledImageProvider
+from .dynamic_range_adjustment import DRAParameters, dynamic_range_adjust
+from .image_to_image_grid_builder import ImageToImageGridBuilder
+from .lut import apply_lut
 from .map_tileset import MapTile, MapTileId, MapTileSet
 from .map_tileset_factory import MapTileSetFactory, WellKnownMapTileSet
-from .sar_complex_imageop import histogram_stretch, linear_mapping_complex, quarter_power_image
+from .mapped_provider import MappedImageProvider
+from .ortho_grid_builder import OrthoGridBuilder
+from .processing_chain import ProcessingChain, band_select, compose
+from .projected_image_tileset import ProjectedImageTileSet
+from .pyramid import TiledImagePyramid, build_pyramid_levels, iter_blocks
+from .pyramid_builder import ProgressCallback, PyramidBuilder
+from .resample import ResampleFunc, area_resample, bilinear_resample, lanczos_resample, nearest_neighbor_resample
+from .retiled_provider import RetiledImageProvider
+from .complex_remap import (
+    ComplexRemapFactory,
+    ROLE_AMPLITUDE_INDEX,
+    ROLE_IMAGINARY,
+    ROLE_MAGNITUDE,
+    ROLE_PHASE,
+    ROLE_REAL,
+    complex_to_power,
+    decode_to_iq,
+    is_complex,
+    load_complex_remap,
+    magnitude_remap,
+    power_to_decibels,
+    quarter_power_remap,
+)
+from .sips_resample import (
+    SIPS_ANTIALIAS_KERNEL_7x7,
+    build_lagrange_kernel_2d,
+    compute_compromise_coefficients,
+    compute_lagrange_coefficients,
+    sips_rrds_resample,
+)
+from .tile_cache import TileCache
+from .statistics import (
+    BandStatistics,
+    ImageStatistics,
+    SamplingStrategy,
+    compute_image_statistics,
+    compute_statistics,
+    merge_statistics,
+    statistics_from_gdal_metadata,
+    statistics_to_gdal_metadata,
+)
+from .chip_factory import ChipFactory, ImageSize, PixelWindow
+from .chip_metadata_builder import ChipMetadataBuilder, GeoTiffChipMetadataBuilder, NitfChipMetadataBuilder
+from .warp_grid import GridBuilder, OcclusionMode, WarpGrid, WarpGridOptions
+from .warped_provider import WarpedImageProvider
 
 __all__ = [
-    "GDALTileFactory",
+    "BandStatistics",
+    "CachedImageProvider",
+    "ChipFactory",
+    "ChipMetadataBuilder",
+    "ComplexRemapFactory",
+    "DRAParameters",
+    "DisplayChainFactory",
+    "DownsampledImageProvider",
+    "GeoTiffChipMetadataBuilder",
+    "GridBuilder",
+    "ImageSize",
+    "ImageStatistics",
+    "ImageToImageGridBuilder",
     "MapTile",
     "MapTileId",
     "MapTileSet",
     "MapTileSetFactory",
+    "MappedImageProvider",
+    "NitfChipMetadataBuilder",
+    "OcclusionMode",
+    "OrthoGridBuilder",
+    "PixelWindow",
+    "ProcessingChain",
+    "ProgressCallback",
+    "ProjectedImageTileSet",
+    "PyramidBuilder",
+    "ROLE_AMPLITUDE_INDEX",
+    "ROLE_IMAGINARY",
+    "ROLE_MAGNITUDE",
+    "ROLE_PHASE",
+    "ROLE_REAL",
+    "ResampleFunc",
+    "RetiledImageProvider",
+    "SIPS_ANTIALIAS_KERNEL_7x7",
+    "SamplingStrategy",
+    "TileCache",
+    "TiledImagePyramid",
+    "WarpGrid",
+    "WarpGridOptions",
+    "WarpedImageProvider",
     "WellKnownMapTileSet",
-    "histogram_stretch",
-    "quarter_power_image",
-    "linear_mapping_complex",
+    "apply_lut",
+    "area_resample",
+    "band_select",
+    "bilinear_resample",
+    "build_lagrange_kernel_2d",
+    "build_pyramid_levels",
+    "color_space_transform",
+    "complex_to_power",
+    "compose",
+    "compute_compromise_coefficients",
+    "compute_image_statistics",
+    "compute_lagrange_coefficients",
+    "compute_statistics",
+    "decode_to_iq",
+    "dynamic_range_adjust",
+    "is_complex",
+    "iter_blocks",
+    "lanczos_resample",
+    "load_complex_remap",
+    "magnitude_remap",
+    "merge_statistics",
+    "nearest_neighbor_resample",
+    "power_to_decibels",
+    "quarter_power_remap",
+    "read_block_or_pad",
+    "read_window",
+    "sips_convolve",
+    "sips_correlate",
+    "sips_rrds_resample",
+    "statistics_from_gdal_metadata",
+    "statistics_to_gdal_metadata",
+    "stitch_source_blocks",
 ]

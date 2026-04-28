@@ -46,10 +46,19 @@ class OffsetElevationModel(ElevationModel):
         world_coordinate: GeodeticWorldCoordinate,
     ) -> Optional[ElevationRegionSummary]:
         """
-        Unimplemented summary of region near the provided world coordinate
+        Delegate to the inner model and adjust min/max elevation by the offset at this coordinate.
 
         :param world_coordinate: the coordinate at the center of the region of interest
 
-        :return: None
+        :return: the adjusted summary, or None if the inner model returns None
         """
-        return None
+        summary = self.inner_elevation_model.describe_region(world_coordinate)
+        if summary is None:
+            return None
+        offset = self.offset_provider.get_offset(world_coordinate)
+        return ElevationRegionSummary(
+            min_elevation=summary.min_elevation + offset,
+            max_elevation=summary.max_elevation + offset,
+            no_data_value=summary.no_data_value,
+            post_spacing=summary.post_spacing,
+        )

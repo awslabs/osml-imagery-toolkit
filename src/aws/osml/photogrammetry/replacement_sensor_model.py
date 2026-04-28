@@ -113,7 +113,7 @@ class RSMGroundDomain:
         """
         if len(ground_domain_vertices) != 8:
             raise ValueError(
-                f"Incorrect number of vertices in RSMGroundDomain. " f"{len(ground_domain_vertices)} provided, 8 expected."
+                f"Incorrect number of vertices in RSMGroundDomain. {len(ground_domain_vertices)} provided, 8 expected."
             )
 
         if ground_domain_form == RSMGroundDomainForm.RECTANGULAR and (

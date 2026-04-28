@@ -97,6 +97,7 @@ class Geolocator:
         sensor_model: SensorModel,
         elevation_model: Optional[ElevationModel] = None,
         approximation_grid_size: int = 11,
+        force: bool = False,
     ) -> None:
         """
         Construct a geolocator given the context objects necessary for performing the calculations.
@@ -105,6 +106,7 @@ class Geolocator:
         :param sensor_model: sensor model for the image
         :param elevation_model: external elevation model
         :param approximation_grid_size: resolution of the approximation grid to use
+        :param force: if True, re-geolocate all features even if they already have geometry set
 
         :return: None
         """
@@ -112,10 +114,14 @@ class Geolocator:
         self.property_accessor = property_accessor
         self.elevation_model = elevation_model
         self.approximation_grid_size = approximation_grid_size
+        self.force = force
 
     def geolocate_features(self, features: List[geojson.Feature]) -> None:
         """
         Update the features to contain additional information from the context provided.
+
+        When force=False (default), features that already have a non-None geometry property are skipped.
+        When force=True, all features are re-geolocated regardless of existing geometry.
 
         :param features: List[geojson.Feature] = the input features to refine
         :return: None, the features are updated in place
@@ -124,7 +130,15 @@ class Geolocator:
         if not features:
             return
 
-        self._geolocate_features_using_approximation_grid(features)
+        if self.force:
+            features_to_process = features
+        else:
+            features_to_process = [f for f in features if f.get("geometry") is None]
+
+        if not features_to_process:
+            return
+
+        self._geolocate_features_using_approximation_grid(features_to_process)
 
     def _geolocate_features_using_approximation_grid(self, features: List[geojson.Feature]) -> None:
         """
@@ -237,7 +251,7 @@ class Geolocator:
             raise ValueError("Unable to geolocate features without a geometry property")
 
         if isinstance(image_geometry, shapely.Point):
-            print(f"Geolocating point: {image_geometry.coords[0]}")
+            logging.debug("Geolocating point: %s", image_geometry.coords[0])
             return geojson.Point(Geolocator.radians_coordinate_to_degrees(interpolation_grid(image_geometry.coords[0])))
         elif isinstance(image_geometry, (shapely.LineString, shapely.LinearRing)):
             return geojson.LineString(
@@ -260,7 +274,7 @@ class Geolocator:
             or image_geometry.__class__.__name__ == "GeometryCollection"
         ):
             geometry_list = [Geolocator._geolocate_image_geometry(part, interpolation_grid) for part in image_geometry.geoms]
-            print(f"geometry_list: {geometry_list}")
+            logging.debug("Geolocated %s with %d parts", image_geometry.__class__.__name__, len(geometry_list))
             return getattr(geojson, image_geometry.__class__.__name__)(geometry_list)
         else:
             raise ValueError(f"Unhandled geometry type: {image_geometry.__class__}")

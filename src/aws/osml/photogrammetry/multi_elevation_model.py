@@ -37,10 +37,14 @@ class MultiElevationModel(ElevationModel):
 
     def describe_region(self, geodetic_world_coordinate: GeodeticWorldCoordinate) -> Optional[ElevationRegionSummary]:
         """
-        Unimplemented summary of region near the provided world coordinate
+        Return the first non-None region summary from the ordered elevation models.
 
         :param geodetic_world_coordinate: the coordinate at the center of the region of interest
 
-        :return: None
+        :return: the summary from the first model that provides one, or None
         """
+        for elevation_model in self.elevation_models:
+            summary = elevation_model.describe_region(geodetic_world_coordinate)
+            if summary is not None:
+                return summary
         return None

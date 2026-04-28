@@ -47,10 +47,12 @@ class ConditionalElevationModel(ElevationModel):
         world_coordinate: GeodeticWorldCoordinate,
     ) -> Optional[ElevationRegionSummary]:
         """
-        Unimplemented summary of region near the provided world coordinate
+        Check the condition and delegate to the inner model if true.
 
         :param world_coordinate: the coordinate at the center of the region of interest
 
-        :return: None
+        :return: the inner model's summary if condition is true, else None
         """
+        if self.em_condition.is_true(world_coordinate):
+            return self.inner_elevation_model.describe_region(world_coordinate)
         return None

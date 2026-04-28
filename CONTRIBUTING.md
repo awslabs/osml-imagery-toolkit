@@ -27,7 +27,7 @@ The branches developers should create directly off of `main` (our trunk) as part
 #### Step 1: Clone the Repository
 Clone the repository to your local machine.
 ```bash
-git clone git@github.com:aws-solutions-library-samples/osml-imagery-toolkit.git
+git clone git@github.com:awslabs/osml-imagery-toolkit.git
 ```
 
 #### Step 2: Create a New Branch

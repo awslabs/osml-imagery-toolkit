@@ -1,0 +1,36 @@
+name: release-v2
+
+on:
+  push:
+    tags: ["v2.*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to PyPI"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify v2 branch
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/v2'
+        run: |
+          echo "::error::This workflow must be run from the v2 branch."
+          exit 1
+
+  build:
+    needs: guard
+    uses: ./.github/workflows/build-v2.yml
+
+  publish:
+    needs: build
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    uses: ./.github/workflows/pypi-v2.yml
+    permissions:
+      contents: read
+      id-token: write

@@ -1,0 +1,2 @@
+# This directory contains small synthetic test files checked into git.
+# Both Rust and Python unit tests reference data from here.

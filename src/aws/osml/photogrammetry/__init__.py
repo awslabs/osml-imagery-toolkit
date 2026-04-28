@@ -17,12 +17,6 @@ the image. In the current implementation support is provided for:
 *Note that the current implementation does not support the RSM Grid based sensor models or the adjustable parameter
 options. These features will be added in a future release.*
 
-.. figure:: ../images/Photogrammetry-OODiagram.png
-   :width: 400
-   :alt: Photogrammetry Class Diagram
-
-   Class diagram of the aws.osml.photogrammetry package showing public and private classes.
-
 Geolocating Image Pixels: Basic Examples
 ****************************************
 
@@ -33,7 +27,13 @@ type given the available metadata.
 .. code-block:: python
     :caption: Example showing calculation of an image location for a geodetic location
 
-    dataset, sensor_model = load_gdal_dataset("./imagery/sample.nitf")
+    from math import radians
+    from aws.osml.io import IO
+    from aws.osml.metadata import load_sensor_model
+    from aws.osml.photogrammetry import GeodeticWorldCoordinate
+
+    with IO.open("./imagery/sample.nitf", "r") as reader:
+        sensor_model = load_sensor_model(reader)
 
     lon_degrees = -77.404453
     lat_degrees = 38.954831
@@ -42,20 +42,23 @@ type given the available metadata.
     # Note the GeodeticWorldCoordinate is (longitude, latitude, elevation) with longitude and latitude in **radians**
     # and elevation in meters above the WGS84 ellipsoid. The resulting ImageCoordinate is returned in (x, y) pixels.
     image_location = sensor_model.world_to_image(
-        GeodeticWorldCoordinate([radians(lon_degrees),
-                                 radians(lat_degrees),
-                                 meters_above_ellipsoid]))
+        GeodeticWorldCoordinate([radians(lon_degrees), radians(lat_degrees), meters_above_ellipsoid])
+    )
 
 .. code-block:: python
     :caption: Example showing use of a SensorModel to geolocate 4 image corners
 
-    dataset, sensor_model = load_gdal_dataset("./imagery/sample.nitf")
-    width = dataset.RasterXSize
-    height = dataset.RasterYSize
+    from aws.osml.io import IO
+    from aws.osml.metadata import load_sensor_model
+    from aws.osml.photogrammetry import ImageCoordinate
+
+    with IO.open("./imagery/sample.nitf", "r") as reader:
+        sensor_model = load_sensor_model(reader)
+        image = reader.get_asset("image:0")
+        width, height = image.num_columns, image.num_rows
 
     image_corners = [[0, 0], [width, 0], [width, height], [0, height]]
-    geo_image_corners = [sensor_model.image_to_world(ImageCoordinate(corner))
-                         for corner in image_corners]
+    geo_image_corners = [sensor_model.image_to_world(ImageCoordinate(corner)) for corner in image_corners]
 
     # GeodeticWorldCoordinates have custom formatting defined that supports a variety of common output formats.
     # The example shown below will produce a ddmmssXdddmmssY formatted coordinate (e.g. 295737N0314003E)
@@ -77,19 +80,27 @@ available we assume a constant surface with elevation provided in the image meta
 .. code-block:: python
     :caption: Example showing use of an external SRTM DEM to provide elevation data for image center
 
-    ds, sensor_model = load_gdal_dataset("./imagery/sample.nitf")
+    from aws.osml.io import IO
+    from aws.osml.metadata import load_sensor_model
+    from aws.osml.photogrammetry import DigitalElevationModel, GenericDEMTileSet, ImageCoordinate
+    from aws.osml.elevation import StoredDEMTileFactory
+
+    with IO.open("./imagery/sample.nitf", "r") as reader:
+        sensor_model = load_sensor_model(reader)
+        image = reader.get_asset("image:0")
+        width, height = image.num_columns, image.num_rows
 
     # This sets up an external elevation model assuming terrain data is named something like:
     # ./SRTM/dted/w044/s23.dt2.
     elevation_model = DigitalElevationModel(
-        GenericDEMTileSet(format_spec="format_spec="dted/%oh%od/%lh%ld.dt2"),
-        GDALDigitalElevationModelTileFactory("./SRTM"))
+        GenericDEMTileSet(format_spec="dted/%oh%od/%lh%ld.dt2"), StoredDEMTileFactory("./SRTM")
+    )
 
     # Note the order of ImageCoordinate is (x, y) and the resulting geodetic coordinate is
     # (longitude, latitude, elevation) with longitude and latitude in **radians** and elevation in meters.
     geodetic_location_of_image_center = sensor_model.image_to_world(
-        ImageCoordinate([ds.RasterXSize/2, ds.RasterYSize/2]),
-        elevation_model=elevation_model)
+        ImageCoordinate([width / 2, height / 2]), elevation_model=elevation_model
+    )
 
 
 External References
@@ -109,6 +120,7 @@ APIs
 
 """
 
+from .affine_sensor_model import AffineSensorModel
 from .chipped_image_sensor_model import ChippedImageSensorModel
 from .composite_sensor_model import CompositeSensorModel
 from .conditional_elevation_model import ConditionalElevationModel
@@ -124,7 +136,6 @@ from .digital_elevation_model import DigitalElevationModel, DigitalElevationMode
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
 from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
 from .em_condition import ElevationModelCondition, EMConditionFalse, EMConditionTrue
-from .gdal_sensor_model import GDALAffineSensorModel
 from .generic_dem_tile_set import GenericDEMTileSet
 from .geometry_query import GeometryQuery
 from .multi_elevation_model import MultiElevationModel
@@ -157,6 +168,7 @@ from .sicd_sensor_model import (
 from .srtm_dem_tile_set import SRTMTileSet
 
 __all__ = [
+    "AffineSensorModel",
     "ChippedImageSensorModel",
     "CompositeSensorModel",
     "ConditionalElevationModel",
@@ -169,7 +181,6 @@ __all__ = [
     "ElevationModel",
     "ElevationModelCondition",
     "ElevationRegionSummary",
-    "GDALAffineSensorModel",
     "GenericDEMTileSet",
     "GeodeticWorldCoordinate",
     "GeometryQuery",

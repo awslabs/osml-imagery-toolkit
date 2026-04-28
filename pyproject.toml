@@ -1,22 +1,128 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.black]
+[project]
+name = "osml-imagery-toolkit"
+version = "2.0.0a1"
+description = "Toolkit to work with imagery collected by satellites and UAVs"
+readme = "PACKAGE_DESCRIPTION.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Amazon Web Services", email = "aws-osml-admin@amazon.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy>=1.23.0",
+    "osml-imagery-io>=0.1.0",
+    "scipy>=1.13.0",
+    "opencv-python-headless>=4.9.0",
+    "cachetools>=5.3.2",
+    "geojson>=3.1.0",
+    "pyproj>=3.6.1",
+    "pyshp>=3.0.0",
+    "shapely>=2.0.2",
+    "xsdata>=24.1",
+    "defusedxml>=0.7.1",
+]
+
+[project.urls]
+Source = "https://github.com/awslabs/osml-imagery-toolkit"
+Tracker = "https://github.com/awslabs/osml-imagery-toolkit/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aws"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=7.2",
+    "pytest-cov>=4.0",
+    "pytest-xdist>=3.2",
+    "hypothesis>=6.0",
+    "mock>=5.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest --cov src/aws/osml --cov-report term-missing {args}"
+test-no-cov = "pytest {args}"
+
+[[tool.hatch.envs.default.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = ["ruff"]
+
+[tool.hatch.envs.lint.scripts]
+check = "ruff check src/ test/"
+format-check = "ruff format --check src/ test/"
+fix = "ruff check --fix src/ test/"
+format = "ruff format src/ test/"
+
+[tool.hatch.envs.docs]
+dependencies = [
+    "sphinx>=7.0",
+    "myst-parser>=2.0",
+    "sphinx-autodoc-typehints",
+    "sphinxcontrib-mermaid",
+    "furo",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html"
+
+[tool.hatch.envs.twine]
+detached = true
+dependencies = [
+    "build",
+    "twine>=1.12.0",
+]
+
+[tool.hatch.envs.twine.scripts]
+check = ["python -m build --sdist", "twine check dist/*.tar.gz"]
+
+[tool.ruff]
 line-length = 125
+target-version = "py310"
+extend-exclude = ["src/aws/osml/formats", "examples"]
 
-[tool.isort]
-profile = "black"
-line_length = 125
-known_first_party = ["aws.osml.*"]
-src_paths = ["src", "test"]
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E203"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["aws.osml"]
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q"
-testpaths = [
-    "test"
-]
+testpaths = ["test"]
 
-# Note Flake8 can't currently be configured in pyproject.toml. See .flake8 for the configuration settings.
+[tool.coverage.run]
+branch = true
+timid = true
+source = ["src/aws/osml"]
+omit = ["src/aws/osml/formats/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "pragma: py3 no cover",
+    "if six.PY2",
+    "elif six.PY2",
+]
+partial_branches = [
+    "pragma: no cover",
+    "pragma: py3 no cover",
+    "if six.PY3",
+    "elif six.PY3",
+]
+show_missing = true
+fail_under = 90

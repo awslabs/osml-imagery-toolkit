@@ -3,7 +3,6 @@
 *.swp
 *.iml
 *.DS_Store
-*.tox
 *.idea
 *venv
 *aggregated_results.txt
@@ -18,7 +17,14 @@ __pycache__/
 /.pytest_cache
 /.mypy_cache
 
-/doc/_apidoc/
+/.kiro
+/.vscode
+/.claude
+CLAUDE.md
+
+/docs/_build/
 /build
 /dist
 /htmlcov
+/hatch.toml
+.mise.toml

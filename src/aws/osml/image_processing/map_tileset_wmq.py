@@ -55,6 +55,10 @@ class WebMercatorQuadMapTileSet(MapTileSet):
         """
         return self._tile_matrix_set_id
 
+    @property
+    def crs_id(self) -> str:
+        return "EPSG:3857"
+
     def get_tile(self, tile_id: MapTileId) -> MapTile:
         """
         Get a description of the tile identified by a specific map tile ID.
@@ -62,7 +66,13 @@ class WebMercatorQuadMapTileSet(MapTileSet):
         :param tile_id: the tile ID
         :return: the tile description
         """
-        return MapTile(id=tile_id, size=(self.tile_size, self.tile_size), bounds=self._calculate_tile_bounds_lle(tile_id))
+        native_bounds = self._calculate_tile_bounds_meters(tile_id)
+        return MapTile(
+            id=tile_id,
+            size=(self.tile_size, self.tile_size),
+            bounds=self._calculate_tile_bounds_lle(tile_id),
+            native_bounds=native_bounds,
+        )
 
     def get_tile_for_location(self, world_coordinate: GeodeticWorldCoordinate, tile_matrix: int) -> MapTile:
         """

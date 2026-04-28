@@ -15,10 +15,12 @@ APIs
 from .feature_index import Feature2DSpatialIndex, STRFeature2DSpatialIndex
 from .geolocation import Geolocator
 from .imaged_feature_property_accessor import ImagedFeaturePropertyAccessor
+from .projection import Projector
 
 __all__ = [
     "Geolocator",
     "ImagedFeaturePropertyAccessor",
     "Feature2DSpatialIndex",
+    "Projector",
     "STRFeature2DSpatialIndex",
 ]
