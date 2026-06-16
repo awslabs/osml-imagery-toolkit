@@ -1,0 +1,77 @@
+name: docs-all
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main (v1)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: v1-src
+
+      - name: Checkout v2
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+          path: v2-src
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up conda (v1 docs)
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: v1-src/environment.yml
+          activate-environment: osml_imagery_toolkit
+          auto-activate-base: false
+
+      - name: Build v1 docs
+        shell: bash -el {0}
+        working-directory: v1-src
+        run: |
+          pip install tox tox-conda
+          tox -e docs
+
+      - name: Build v2 docs
+        working-directory: v2-src
+        run: |
+          pip install hatch
+          hatch run docs:build
+
+      - name: Assemble combined site
+        run: |
+          mkdir -p combined/v1 combined/v2
+          cp -r v1-src/.tox/docs/tmp/html/* combined/v1/
+          cp -r v2-src/docs/_build/html/* combined/v2/
+          cp v1-src/doc/version-picker.html combined/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: combined
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
