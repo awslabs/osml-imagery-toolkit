@@ -131,6 +131,23 @@ class TestMathUtils(unittest.TestCase):
 
         assert np.allclose(world_coordinate.coordinate, new_world_coordinate.coordinate)
 
+    def test_polynomial_sensor_model_options(self):
+        from aws.osml.photogrammetry.coordinates import ImageCoordinate
+        from aws.osml.photogrammetry.sensor_model import SensorModelOptions
+
+        image_coordinate = ImageCoordinate([100.0 * radians(5.0), 100.0 * radians(5.0)])
+        initial_guess = [radians(5.1), radians(5.1)]
+
+        # Test explicit solver.
+        new_world_coordinate = self.sample_polynomial_sensor_model.image_to_world(
+            image_coordinate,
+            options={
+                SensorModelOptions.INITIAL_GUESS: initial_guess,
+                SensorModelOptions.EARTH_INTERSECTION_MINIMIZER: "neldermead",
+            },
+        )
+        assert np.allclose([radians(5.0), radians(5.0), 0.0], new_world_coordinate.coordinate)
+
     def test_segmented_polynomial_sensor_model(self):
         from aws.osml.photogrammetry.coordinates import GeodeticWorldCoordinate
         from aws.osml.photogrammetry.elevation_model import ConstantElevationModel

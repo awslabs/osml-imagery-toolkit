@@ -121,6 +121,9 @@ from .coordinates import (
 )
 from .defaulted_sensor_model import DefaultedSensorModel
 from .digital_elevation_model import DigitalElevationModel, DigitalElevationModelTileFactory, DigitalElevationModelTileSet
+from .earth_intersection_minimizer import EarthIntersectionMinimizer
+from .eim_neldermead import EIMNelderMead
+from .eim_raymarch import EIMRayMarch
 from .elevation_model import ConstantElevationModel, ElevationModel, ElevationRegionSummary
 from .elevation_offset_provider import ConstantOffsetProvider, ElevationOffsetProvider
 from .em_condition import ElevationModelCondition, EMConditionFalse, EMConditionTrue
@@ -165,8 +168,11 @@ __all__ = [
     "DigitalElevationModel",
     "DigitalElevationModelTileFactory",
     "DigitalElevationModelTileSet",
+    "EIMNelderMead",
+    "EIMRayMarch",
     "EMConditionFalse",
     "EMConditionTrue",
+    "EarthIntersectionMinimizer",
     "ElevationModel",
     "ElevationModelCondition",
     "ElevationRegionSummary",

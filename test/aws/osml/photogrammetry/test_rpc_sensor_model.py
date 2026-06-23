@@ -67,6 +67,26 @@ class TestRPCSensorModel(unittest.TestCase):
 
         assert np.allclose(world_coordinate.coordinate, new_world_coordinate.coordinate)
 
+    def test_rpc_sensor_model_options(self):
+        from aws.osml.photogrammetry.coordinates import ImageCoordinate
+        from aws.osml.photogrammetry.elevation_model import ConstantElevationModel
+        from aws.osml.photogrammetry.sensor_model import SensorModelOptions
+
+        elevation_model = ConstantElevationModel(42.0)
+        image_coordinate = ImageCoordinate((5.0, 3.0))
+        initial_guess = [radians(5.1), radians(3.1)]
+
+        # Test explicit solver.
+        new_world_coordinate = self.sample_rpc_sensor_model.image_to_world(
+            image_coordinate,
+            elevation_model=elevation_model,
+            options={
+                SensorModelOptions.INITIAL_GUESS: initial_guess,
+                SensorModelOptions.EARTH_INTERSECTION_MINIMIZER: "neldermead",
+            },
+        )
+        assert np.allclose([radians(5.0), radians(3.0), 42.0], new_world_coordinate.coordinate)
+
     def test_rpc_sensor_model_realworld(self):
         from aws.osml.photogrammetry.coordinates import GeodeticWorldCoordinate
 
