@@ -24,6 +24,20 @@ multiple sources by priority, `OffsetElevationModel` applies a provider-supplied
 `ConditionalElevationModel` selects a model based on a runtime condition, and
 `NormalizedElevationModel` clamps outputs to a valid range.
 
+**`EarthIntersectionMinimizer` ABC** decouples the iterative solver from the sensor models
+that need one. Rational polynomial models have no closed-form image-to-world solution, so
+they minimize the reprojection distance to the target image coordinate subject to an
+`ElevationModel` constraint. `solve` returns the converged `GeodeticWorldCoordinate` paired
+with a success flag, leaving the caller to decide how to handle non-convergence.
+`EIMNelderMead` wraps a Nelder-Mead simplex search; `EIMRayMarch` first steps along a
+line-of-sight ray to bracket the terrain intersection, then refines with `EIMNelderMead`,
+which converges better over steep terrain. Implementations self-register in `eim_registry`
+under a short name, and callers select one per call via
+`SensorModelOptions.EARTH_INTERSECTION_MINIMIZER`; each model otherwise falls back to its
+own `default_solver`. `RPCSensorModel` and `RSMPolynomialSensorModel` are the current
+consumers — the SAR and matrix-projection models solve analytically and do not use a
+minimizer.
+
 **Coordinate value objects** (`ImageCoordinate`, `GeodeticWorldCoordinate`,
 `WorldCoordinate`) are numpy-backed vectors. Angular quantities are in radians.
 
@@ -52,6 +66,25 @@ classDiagram
     SensorModel ..> GeodeticWorldCoordinate
 
     note for SensorModel "Additional implementations (Affine, Projective,\nRSMSectioned, Defaulted) omitted for clarity"
+```
+
+```{mermaid}
+classDiagram
+    class EarthIntersectionMinimizer {
+        <<abstract>>
+        +solve(minimization_function, ElevationModel, initial_guess, search_distance) tuple
+    }
+    class EIMNelderMead
+    class EIMRayMarch
+    class RPCSensorModel
+    class RSMPolynomialSensorModel
+
+    EarthIntersectionMinimizer <|-- EIMNelderMead
+    EarthIntersectionMinimizer <|-- EIMRayMarch
+    EIMRayMarch o-- EIMNelderMead : refines with
+    RPCSensorModel o-- EarthIntersectionMinimizer : default_solver
+    RSMPolynomialSensorModel o-- EarthIntersectionMinimizer : default_solver
+    EarthIntersectionMinimizer ..> ElevationModel
 ```
 
 ```{mermaid}
