@@ -1,4 +1,5 @@
 #  Copyright 2025-2026 Amazon.com, Inc. or its affiliates.
+#  Copyright 2026-2026 General Atomics Integrated Intelligence, Inc.
 
 import operator
 from math import degrees, floor

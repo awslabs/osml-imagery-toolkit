@@ -1,4 +1,5 @@
 #  Copyright 2025-2026 Amazon.com, Inc. or its affiliates.
+#  Copyright 2026-2026 General Atomics Integrated Intelligence, Inc.
 
 # flake8: noqa
 
