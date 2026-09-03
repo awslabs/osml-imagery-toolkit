@@ -60,6 +60,7 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
     "sphinx_rtd_theme",
+    "sphinxcontrib.mermaid",
 ]
 
 source_suffix = ".rst"
