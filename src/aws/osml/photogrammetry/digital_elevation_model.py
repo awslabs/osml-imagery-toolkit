@@ -1,5 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
-#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
+#  Copyright 2025-2026 General Atomics Integrated Intelligence, Inc.
 
 # TODO: Add typing for ArrayLike once Numpy upgraded to 1.20+
 # from numpy.typing import ArrayLike
@@ -127,7 +127,10 @@ class DigitalElevationModel(ElevationModel):
 
         if interpolation_grid is not None and sensor_model is not None:
             image_coordinate = sensor_model.world_to_image(geodetic_world_coordinate)
-            elevation = interpolation_grid(image_coordinate.x, image_coordinate.y)[0][0]
+            # GDALAffineSensorModel returns corner-based coordinates (0.5 = center of pixel [0])
+            # But interpolation grid uses index-based coordinates (0 = center of pixel [0])
+            # Subtract 0.5 to convert from GDAL corner-based to interpolator index-based
+            elevation = interpolation_grid(image_coordinate.x - 0.5, image_coordinate.y - 0.5)[0][0]
             if np.isnan(elevation):
                 return False
             geodetic_world_coordinate.elevation = elevation

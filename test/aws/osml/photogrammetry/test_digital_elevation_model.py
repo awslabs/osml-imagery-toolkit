@@ -1,5 +1,5 @@
 #  Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
-#  Copyright 2025-2025 General Atomics Integrated Intelligence, Inc.
+#  Copyright 2025-2026 General Atomics Integrated Intelligence, Inc.
 
 import unittest
 
@@ -27,16 +27,18 @@ class TestDigitalElevationModel(unittest.TestCase):
         test_elevation_summary = ElevationRegionSummary(0.0, 4.0, -1, 30.0)
 
         # These are the points we will test for interpolation
+        # In GDAL's corner-based coordinate system, (0,0) is the upper-left corner of the image,
+        # so pixel [0,0]'s center is at (0.5, 0.5) and pixel [2,2]'s center is at (2.5, 2.5).
         test_grid_coordinates = [
-            ImageCoordinate([-1.0, -1.0]),
-            ImageCoordinate([0.5, 0.5]),
-            ImageCoordinate([1.0, 0.5]),
-            ImageCoordinate([1.0, 1.5]),
-            ImageCoordinate([1.5, 0.0]),
-            ImageCoordinate([1.5, 1.5]),
-            ImageCoordinate([2.5, 2.5]),
-            ImageCoordinate([0.0, 0.0]),
-            ImageCoordinate([2.0, 2.0]),
+            ImageCoordinate([-0.5, -0.5]),  # Out of bounds, clipped to corner
+            ImageCoordinate([1.0, 1.0]),  # Between pixel centers
+            ImageCoordinate([1.5, 1.0]),  # Between pixel centers
+            ImageCoordinate([1.5, 2.0]),  # Between pixel centers
+            ImageCoordinate([2.0, 0.5]),  # Between pixel centers
+            ImageCoordinate([2.0, 2.0]),  # Between pixel centers
+            ImageCoordinate([3.0, 3.0]),  # Out of bounds, clipped to corner
+            ImageCoordinate([0.5, 0.5]),  # Pixel [0,0] center (GDAL coordinate)
+            ImageCoordinate([2.5, 2.5]),  # Pixel [2,2] center (GDAL coordinate)
         ]
 
         # These are the expected interpolated values
@@ -152,16 +154,18 @@ class TestDigitalElevationModel(unittest.TestCase):
         test_elevation_summary = ElevationRegionSummary(0.0, 4.0, -9999, 30.0)
 
         # These are the points we will test for interpolation
+        # In GDAL's corner-based coordinate system, (0,0) is the upper-left corner of the image,
+        # so pixel [0,0]'s center is at (0.5, 0.5) and pixel [2,2]'s center is at (2.5, 2.5).
         test_grid_coordinates = [
-            ImageCoordinate([-1.0, -1.0]),
-            ImageCoordinate([0.5, 0.5]),
-            ImageCoordinate([1.0, 0.5]),
-            ImageCoordinate([1.0, 1.5]),
-            ImageCoordinate([1.5, 0.0]),
-            ImageCoordinate([1.5, 1.5]),
-            ImageCoordinate([2.5, 2.5]),
-            ImageCoordinate([0.0, 0.0]),
-            ImageCoordinate([2.0, 2.0]),
+            ImageCoordinate([-0.5, -0.5]),  # Out of bounds, clipped to corner
+            ImageCoordinate([1.0, 1.0]),  # Between pixel centers
+            ImageCoordinate([1.5, 1.0]),  # Between pixel centers
+            ImageCoordinate([1.5, 2.0]),  # Between pixel centers
+            ImageCoordinate([2.0, 0.5]),  # Between pixel centers
+            ImageCoordinate([2.0, 2.0]),  # Between pixel centers
+            ImageCoordinate([3.0, 3.0]),  # Out of bounds, clipped to corner
+            ImageCoordinate([0.5, 0.5]),  # Pixel [0,0] center (GDAL coordinate)
+            ImageCoordinate([2.5, 2.5]),  # Pixel [2,2] center with NaN value
         ]
 
         # This is the default elevation value. If there is missing data in the elevation
