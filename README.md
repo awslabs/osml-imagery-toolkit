@@ -19,9 +19,13 @@ This library contains four core packages under the `aws.osml` namespace:
 
 ## Documentation
 
-* **APIs**: You can find the latest API documentation for the OSML Imagery Toolkit hosted [here](https://awslabs.github.io/osml-imagery-toolkit/).
-If you are working from the source code running `tox -e docs` will trigger the Sphinx documentation build.
-* **Example Notebooks**: Example notebooks for some operations are in the `examples` directory
+**[Read the OversightML Imagery Toolkit API Reference](https://awslabs.github.io/osml-imagery-toolkit/v1/)**
+
+* **API Reference**: [awslabs.github.io/osml-imagery-toolkit/v1](https://awslabs.github.io/osml-imagery-toolkit/v1/) covers
+  the current stable release. The [documentation index](https://awslabs.github.io/osml-imagery-toolkit/) lists all
+  published versions, including the [v2 development preview](https://awslabs.github.io/osml-imagery-toolkit/v2/).
+* **Example Notebooks**: worked examples for common operations are in the [`examples`](examples) directory.
+* **Building the docs locally**: from a source checkout, run `tox -e docs` to trigger the Sphinx documentation build.
 
 ## Installation
 
