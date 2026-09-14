@@ -65,6 +65,13 @@ class RasterOffsetProvider(ElevationOffsetProvider):
             if flips:
                 data = np.flip(data, flips)
 
+            # Offset rasters are post-referenced products, so a value belongs to the centre
+            # of its cell. Adding half a pixel to the origin places the axes on those
+            # centres, which is only correct because derive_geo_transform() guarantees a
+            # corner-referenced transform for every source it supports — including
+            # RasterPixelIsPoint GeoTIFFs, whose tiepoints are normalized on read. Do not
+            # remove that normalization without also dropping the gt[n]/2 terms here; the
+            # two shifts cancel and the grid would be sampled half a post off.
             self.offset_grid = RectBivariateSpline(
                 np.radians(gt[3] + gt[5] / 2 + gt[5] * np.arange(rows)),
                 np.radians(gt[0] + gt[1] / 2 + gt[1] * np.arange(cols)),

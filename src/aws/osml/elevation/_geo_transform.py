@@ -30,8 +30,14 @@ def _derive_dted_geo_transform(metadata: Dict) -> Optional[List[float]]:
     - dted:latitude_interval: int, post spacing in tenths of arcseconds
     - dted:num_latitude_points: int, number of latitude posts per profile
 
-    The geo transform maps pixel (col, row) to geographic (lon, lat) with
-    origin at the NW corner, matching GeoTIFF pixel-is-point semantics.
+    The geo transform maps pixel (col, row) to geographic (lon, lat). DTED is a
+    post-referenced product — its header locates the SW *post*, not a cell corner —
+    but the transform this function returns is corner-referenced, so pixel (0, 0)
+    lands half a post NW of the NW post. That matches the convention used throughout
+    the photogrammetry package and the normalization
+    :func:`aws.osml.metadata.dataset_utils.derive_geotiff_georeference` applies to
+    RasterPixelIsPoint GeoTIFFs, so the centre of post (col, row) is at continuous
+    image coordinate (col + 0.5, row + 0.5) regardless of DEM source format.
 
     :param metadata: image metadata dictionary from osml-imagery-io
     :return: 6-coefficient geo transform, or None if DTED keys are missing
@@ -49,8 +55,11 @@ def _derive_dted_geo_transform(metadata: Dict) -> Optional[List[float]]:
     x_res = lon_interval / 10.0 / 3600.0
     y_res = lat_interval / 10.0 / 3600.0
 
-    # Geo transform origin is NW corner; DTED origin is SW corner.
-    # NW lat = SW lat + (num_lat_points - 1) * y_res
-    y_origin = origin_lat + y_res * (num_lat_points - 1)
+    # DTED reports the SW post; the NW post is (num_lat_points - 1) rows above it.
+    nw_post_lat = origin_lat + y_res * (num_lat_points - 1)
 
-    return [origin_lon, x_res, 0.0, y_origin, 0.0, -y_res]
+    # Step half a post W and N to reach the corner of the cell around the NW post.
+    x_origin = origin_lon - x_res / 2.0
+    y_origin = nw_post_lat + y_res / 2.0
+
+    return [x_origin, x_res, 0.0, y_origin, 0.0, -y_res]

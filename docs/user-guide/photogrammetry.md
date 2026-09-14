@@ -40,6 +40,40 @@ the (lon, lat) order — this matches the mathematical (x, y, z)
 convention and standards like [RFC 7946 (GeoJSON)](https://datatracker.ietf.org/doc/html/rfc7946) but differs from the "lat/lon" order used by many tools. See [Elevation Models](elevation.md) for more details on the height above ellipsoid and geoid corrections.
 ```
 
+(the-corner-convention)=
+### The Corner Convention
+
+That `(0.0, 0.0)` is the upper-left *corner* of the upper-left pixel — not
+its centre — is a property of the whole package, not of any one sensor
+model. Image coordinates are continuous, so the centre of the pixel in
+row `r` and column `c` is `(c + 0.5, r + 0.5)`, and the lower-right
+corner of a `width` × `height` image is `(width, height)`.
+
+GeoTIFF can express either convention, and says which it used in the
+`GTRasterTypeGeoKey` GeoKey (1025):
+
+- **`RasterPixelIsArea`** — the georeferencing tags tie an image position
+  to a pixel corner. This is the default when the GeoKey is absent, and
+  what ordinary imagery uses.
+- **`RasterPixelIsPoint`** — the tags tie an image position to a sample
+  centre. Post-referenced products use this: SRTM tiles, Copernicus
+  GLO-30, and geoid undulation grids.
+
+`load_sensor_model` normalizes this difference on read. The transform
+behind an `AffineSensorModel` is **always** corner-referenced: for a
+`RasterPixelIsPoint` source the derived origin is shifted half a pixel
+so that it lands on the pixel corner, matching everything else in the
+package. This is the same normalization GDAL's `GetGeoTransform()`
+performs implicitly, so these rasters geolocate identically here.
+
+```{note}
+Because the convention is normalized at the point the transform is
+derived, it applies to every consumer of `load_sensor_model` —
+orthorectification, map tiling, and feature geolocation included. You do
+not need to apply a half-pixel correction yourself, and doing so will
+introduce one.
+```
+
 ## Quick Start
 
 ```python

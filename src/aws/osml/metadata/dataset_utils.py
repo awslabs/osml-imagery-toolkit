@@ -12,6 +12,14 @@ from .sensor_model_factory import SensorModelFactory
 
 logger = logging.getLogger(__name__)
 
+# GeoKey ids from the GeoKey directory (TIFF tag 34735)
+GT_RASTER_TYPE_GEOKEY = 1025
+GEOGRAPHIC_TYPE_GEOKEY = 2048
+PROJECTED_CS_TYPE_GEOKEY = 3072
+
+# GTRasterTypeGeoKey values; RasterPixelIsArea (1) is the default when the key is absent
+RASTER_PIXEL_IS_POINT = 2
+
 
 def load_sensor_model(reader: Any, asset_key: Optional[str] = None) -> Optional[SensorModel]:
     """
@@ -242,6 +250,13 @@ def derive_geotiff_georeference(
     3. If multiple ModelTiepoints exist without ModelPixelScale, treat them as
        ground control points (GDAL's behavior for multi-tiepoint GeoTIFFs).
 
+    The returned geo_transform is always corner-referenced: pixel (0, 0) maps to the
+    upper-left *corner* of the first sample, matching the convention used throughout
+    the photogrammetry package. GeoTIFF encodes which convention the raw tags use in
+    GTRasterTypeGeoKey (1025); when it is RasterPixelIsPoint the tags reference sample
+    centres, so the derived origin is shifted back by half a pixel. This mirrors what
+    GDAL's GetGeoTransform() does implicitly (see its GTIFF_POINT_GEO_IGNORE option).
+
     :param metadata_dict: image metadata as a flat dict
     :return: tuple of (geo_transform, ground_control_points) — either or both may be None
     """
@@ -304,7 +319,45 @@ def derive_geotiff_georeference(
                     )
                 )
 
+    if geo_transform is not None and _geokey(metadata_dict, GT_RASTER_TYPE_GEOKEY) == RASTER_PIXEL_IS_POINT:
+        # Tags reference sample centres; step back half a pixel along both image axes
+        # to place the origin on the upper-left pixel corner.
+        geo_transform[0] -= (geo_transform[1] + geo_transform[2]) * 0.5
+        geo_transform[3] -= (geo_transform[4] + geo_transform[5]) * 0.5
+
     return geo_transform, ground_control_points
+
+
+def _geokey(metadata_dict: Dict[str, Any], *key_ids: int) -> Optional[int]:
+    """
+    Look up a GeoKey value in the GeoKey directory (tag 34735).
+
+    Only keys stored inline (tiff_tag_location == 0) are resolved; keys whose values
+    live in the double (34736) or ASCII (34737) parameter tags are not returned. When
+    several of the requested key ids are present the first one in directory order wins.
+
+    :param metadata_dict: image metadata as a flat dict
+    :param key_ids: one or more GeoKey ids to look for
+    :return: the GeoKey value, or None if no requested key is present inline
+    """
+    geokey_dir = metadata_dict.get("34735")
+    if not geokey_dir or len(geokey_dir) < 4:
+        return None
+
+    # GeoKey directory structure:
+    # Header: [version, revision, minor_revision, num_keys]
+    # Each key entry: [key_id, tiff_tag_location, count, value_offset]
+    # When tiff_tag_location=0, value_offset contains the value directly.
+    num_keys = int(geokey_dir[3])
+
+    for i in range(num_keys):
+        offset = 4 + i * 4
+        if offset + 3 >= len(geokey_dir):
+            break
+        if int(geokey_dir[offset]) in key_ids and int(geokey_dir[offset + 1]) == 0:
+            return int(geokey_dir[offset + 3])
+
+    return None
 
 
 def _derive_proj_wkt(metadata_dict: Dict[str, Any]) -> Optional[str]:
@@ -318,29 +371,7 @@ def _derive_proj_wkt(metadata_dict: Dict[str, Any]) -> Optional[str]:
     :param metadata_dict: image metadata as a flat dict
     :return: CRS WKT string, or None if no GeoKeys are present
     """
-    geokey_dir = metadata_dict.get("34735")
-    if not geokey_dir or len(geokey_dir) < 4:
-        return None
-
-    # GeoKey directory structure:
-    # Header: [version, revision, minor_revision, num_keys]
-    # Each key entry: [key_id, tiff_tag_location, count, value_offset]
-    # When tiff_tag_location=0, value_offset contains the value directly.
-    num_keys = int(geokey_dir[3])
-    epsg_code = None
-
-    for i in range(num_keys):
-        offset = 4 + i * 4
-        if offset + 3 >= len(geokey_dir):
-            break
-        key_id = int(geokey_dir[offset])
-        tiff_tag_location = int(geokey_dir[offset + 1])
-        value_offset = int(geokey_dir[offset + 3])
-
-        # ProjectedCSTypeGeoKey (3072) or GeographicTypeGeoKey (2048)
-        if key_id in (2048, 3072) and tiff_tag_location == 0:
-            epsg_code = value_offset
-            break
+    epsg_code = _geokey(metadata_dict, GEOGRAPHIC_TYPE_GEOKEY, PROJECTED_CS_TYPE_GEOKEY)
 
     if epsg_code is None or epsg_code == 0 or epsg_code == 32767:
         return None

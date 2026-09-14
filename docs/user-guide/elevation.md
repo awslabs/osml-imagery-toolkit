@@ -20,6 +20,40 @@ Failing to do so introduces the full geoid undulation as an elevation
 error — which, at high off-nadir angles, can produce horizontal errors
 exceeding 50 meters.
 
+## Posts, Not Cells
+
+DEM values are **posts** — point elevation measurements on a regular
+grid, not averages over an area. `DigitalElevationModel` samples
+accordingly: querying the exact geographic location of a post returns
+that post's stored value, and locations between posts are bilinearly
+interpolated from the four surrounding posts. Queries beyond the edge of
+a tile clamp to the nearest edge post rather than extrapolating.
+
+Every DEM source this toolkit reads is post-referenced, but they declare
+it differently:
+
+| Source | How the grid is anchored |
+|--------|--------------------------|
+| SRTM GeoTIFF | `GTRasterTypeGeoKey` = `RasterPixelIsPoint`; the tiepoint is the NW post |
+| Copernicus GLO-30 | `GTRasterTypeGeoKey` = `RasterPixelIsPoint`; the tiepoint is the NW post |
+| DTED | Post-referenced by construction; the header locates the SW post |
+
+The toolkit normalizes all three on read to the corner-referenced
+convention used throughout the photogrammetry package (see [The Corner
+Convention](the-corner-convention)), so the centre of
+post `[row][column]` is at image coordinate `(column + 0.5, row + 0.5)`
+whatever the source format. Geoid grids are post-referenced too, and
+`RasterOffsetProvider` samples undulation values at their posts by the
+same rule.
+
+```{note}
+This is handled for you — no half-post correction is needed at the call
+site. It is worth knowing about because the error it prevents is not
+small: half a post is roughly 15 m at GLO-30 and 40 m at SRTM
+3-arc-second, and over steep terrain that displacement can move the
+sampled elevation by tens of meters.
+```
+
 ## Quick Start
 
 The simplest useful configuration: SRTM terrain tiles, EGM96 geoid

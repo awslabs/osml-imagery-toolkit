@@ -132,6 +132,80 @@ class TestRasterOffsetProviderAxisFlipping(unittest.TestCase):
         self.assertAlmostEqual(offset, 5.0, places=4)
 
 
+class TestRasterOffsetProviderPixelIsPoint(unittest.TestCase):
+    """
+    Verify geoid offsets are sampled at the posts of a PixelIsPoint raster.
+
+    Geoid grids (EGM96/EGM2008) are post-referenced products, so their tiepoint
+    locates the centre of the first post rather than a cell corner. The provider
+    builds its interpolation axes as ``gt[3] + gt[5]/2 + ...``, adding half a pixel
+    to reach cell centres — arithmetic that is only correct when the geo transform
+    it is handed is corner-referenced. These tests pin that contract: before the
+    area/point normalization the axes double-shifted and every offset was sampled
+    half a post away from the post it was stored at.
+    """
+
+    # NW post at (10, 50) with 1-degree spacing, so posts sit on whole degrees:
+    #   lon 10, 11, 12  x  lat 50, 49, 48
+    data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], dtype=np.float64)
+    nw_post_lon = 10.0
+    nw_post_lat = 50.0
+    spacing = 1.0
+
+    def _provider(self, mock_io, scale_factor=1.0):
+        metadata = _make_point_metadata(
+            nw_post_lon=self.nw_post_lon,
+            nw_post_lat=self.nw_post_lat,
+            x_res=self.spacing,
+            y_res=self.spacing,
+        )
+        mock_io.open.return_value = _make_mock_reader(metadata, self.data)
+        return RasterOffsetProvider("/geoid.tif", scale_factor=scale_factor)
+
+    def _offset_at_post(self, provider, row, col):
+        coord = GeodeticWorldCoordinate(
+            [
+                radians(self.nw_post_lon + col * self.spacing),
+                radians(self.nw_post_lat - row * self.spacing),
+                0.0,
+            ]
+        )
+        return provider.get_offset(coord)
+
+    @patch("aws.osml.elevation.raster_offset_provider.IO")
+    def test_every_post_returns_its_stored_offset(self, mock_io):
+        provider = self._provider(mock_io)
+        for row in range(self.data.shape[0]):
+            for col in range(self.data.shape[1]):
+                with self.subTest(row=row, col=col):
+                    self.assertAlmostEqual(self._offset_at_post(provider, row, col), self.data[row][col], places=6)
+
+    @patch("aws.osml.elevation.raster_offset_provider.IO")
+    def test_nw_post_is_not_half_a_post_away(self, mock_io):
+        """
+        The NW post is the case a double-shift corrupts most visibly.
+
+        With the pre-fix point-referenced transform the latitude axis ran
+        [47.5, 48.5, 49.5], so querying lat=50 clamped to the wrong row and
+        interpolated across longitudes, returning 1.5 instead of 2.0.
+        """
+        provider = self._provider(mock_io)
+        self.assertAlmostEqual(self._offset_at_post(provider, 0, 1), 2.0, places=6)
+        self.assertNotAlmostEqual(self._offset_at_post(provider, 0, 1), 1.5, places=3)
+
+    @patch("aws.osml.elevation.raster_offset_provider.IO")
+    def test_midpoint_between_posts_interpolates(self, mock_io):
+        """Halfway between posts [0][0]=1 and [0][1]=2 is 1.5, confirming the axis scale."""
+        provider = self._provider(mock_io)
+        coord = GeodeticWorldCoordinate([radians(self.nw_post_lon + 0.5), radians(self.nw_post_lat), 0.0])
+        self.assertAlmostEqual(provider.get_offset(coord), 1.5, places=6)
+
+    @patch("aws.osml.elevation.raster_offset_provider.IO")
+    def test_scale_factor_applied_at_post(self, mock_io):
+        provider = self._provider(mock_io, scale_factor=0.5)
+        self.assertAlmostEqual(self._offset_at_post(provider, 2, 2), 4.5, places=6)
+
+
 class TestRasterOffsetProviderBoundsChecking(unittest.TestCase):
     """Verify bounds checking raises ValueError."""
 
@@ -245,6 +319,23 @@ def _make_metadata(origin_lon: float, origin_lat: float, x_res: float, y_res: fl
     return {
         "33550": [x_res, y_res, 0],
         "33922": [0, 0, 0, origin_lon, nw_lat, 0],
+    }
+
+
+def _make_point_metadata(nw_post_lon: float, nw_post_lat: float, x_res: float, y_res: float) -> dict:
+    """Create GeoTIFF metadata for a north-up RasterPixelIsPoint raster.
+
+    The tiepoint ties pixel (0,0) to the centre of the NW post rather than to a cell
+    corner, which is how post-referenced products such as geoid grids and SRTM tiles
+    are encoded. GTRasterTypeGeoKey (1025) = 2 declares that convention, and
+    derive_geotiff_georeference normalizes the derived transform to:
+    [nw_post_lon - x_res/2, x_res, 0, nw_post_lat + y_res/2, 0, -y_res]
+    """
+    return {
+        "33550": [x_res, y_res, 0],
+        "33922": [0, 0, 0, nw_post_lon, nw_post_lat, 0],
+        # GeoKey directory: header + GTModelTypeGeoKey(1024)=2 + GTRasterTypeGeoKey(1025)=2
+        "34735": [1, 1, 0, 2, 1024, 0, 1, 2, 1025, 0, 1, 2],
     }
 
 

@@ -161,6 +161,12 @@ class DigitalElevationModel(ElevationModel):
         returned to allow us to precisely identify the location in the grid of a
         world coordinate.
 
+        The returned grid is queried in the same continuous image coordinates the sensor
+        models use, where pixel (0, 0) is the upper-left corner of the first sample. Post
+        [row][col] therefore sits at (col + 0.5, row + 0.5), so grid(0.5, 0.5) returns
+        elevations[0][0] exactly rather than an interpolation of its neighbors. Queries
+        outside the raster clamp to the edge posts instead of extrapolating.
+
         Note that the results of this method are cached by tile_id. It is very common for
         the set_elevation() method to be called multiple times for locations that are in a
         narrow region of interest. This will prevent unnecessary repeated loading of tiles.
@@ -180,7 +186,9 @@ class DigitalElevationModel(ElevationModel):
                 if nan_mask.any():
                     elevations_array = elevations_array.astype(np.float64)
                     elevations_array[nan_mask] = np.nan
-                    interpolator = RegularGridInterpolator((np.arange(width), np.arange(height)), elevations_array.T)
+                    interpolator = RegularGridInterpolator(
+                        (np.arange(width) + 0.5, np.arange(height) + 0.5), elevations_array.T
+                    )
                     xs = interpolator.grid[0][np.array([0, -1])]
                     ys = interpolator.grid[1][np.array([0, -1])]
 
@@ -193,8 +201,8 @@ class DigitalElevationModel(ElevationModel):
                         )[np.newaxis, np.newaxis, ...]
 
                     return interpolation_grid, sensor_model, summary
-            x = range(0, width)
-            y = range(0, height)
+            x = np.arange(width) + 0.5
+            y = np.arange(height) + 0.5
             return RectBivariateSpline(x, y, elevations_array.T, kx=1, ky=1), sensor_model, summary
         else:
             return None, None, None

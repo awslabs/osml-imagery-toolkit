@@ -55,6 +55,10 @@ class StoredDEMTileFactory(DigitalElevationModelTileFactory):
                 band_array = read_single_band(image)
                 height, width = band_array.shape
 
+                # Pixel (0,0) and (width,height) are the raster's UL and LR corners because
+                # derive_geo_transform() returns a corner-referenced transform for every
+                # supported source, so this span is the exact extent and dividing by the
+                # diagonal in posts gives the mean post spacing.
                 ul_ecf = geodetic_to_geocentric(sensor_model.image_to_world(ImageCoordinate([0, 0]))).coordinate
                 lr_ecf = geodetic_to_geocentric(sensor_model.image_to_world(ImageCoordinate([width, height]))).coordinate
                 post_spacing = np.linalg.norm(ul_ecf - lr_ecf) / np.sqrt(width * width + height * height)
