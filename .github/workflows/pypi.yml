@@ -1,29 +1,178 @@
-# This workflow will upload a Python Package using Twine when a release is created
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
+# Manual release workflow for the 1.x line.
+#
+# Dispatch this workflow from the ref you want to release: a tag such as
+# v1.5.1, or a branch such as main or a release/* maintenance branch.
+#
+# The publish job must stay a top-level job in this file. PyPI's Trusted
+# Publisher for this project is registered as `pypi.yml` + environment
+# `release`, and PEP 740 attestations are verified against the workflow that
+# GitHub records in the OIDC token. Calling this from a wrapper workflow makes
+# those two disagree and PyPI rejects the upload with an opaque 400.
+# See https://github.com/pypa/gh-action-pypi-publish/issues/166
 
-name: pypi
+name: release
 
 on:
-  workflow_call:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the leading v (e.g. 1.5.1). Must match setup.cfg."
+        required: true
+        type: string
+      dry_run:
+        description: "Build and validate only - do not publish to PyPI"
+        required: false
+        type: boolean
+        default: true
+      run_tests:
+        description: "Run the tox test suite before building"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  deploy:
+  guard:
+    name: Validate release inputs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Reject the v2 branch
+        if: startsWith(github.ref_name, 'v2')
+        run: |
+          echo "::error::v2 releases are handled by release-v2.yml on the v2 branch."
+          exit 1
+
+      - name: Check setup.cfg version matches the requested version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          declared=$(python3 -c "import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])")
+          echo "setup.cfg declares: $declared"
+          echo "requested version:  $VERSION"
+          if [ "$declared" != "$VERSION" ]; then
+            echo "::error::setup.cfg declares $declared, but this release was dispatched for $VERSION. Bump setup.cfg or correct the input."
+            exit 1
+          fi
+
+      - name: Check tag name matches when dispatched from a tag
+        if: github.ref_type == 'tag'
+        env:
+          VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_NAME" != "v$VERSION" ]; then
+            echo "::error::Dispatched from tag $REF_NAME but the release version is $VERSION (expected tag v$VERSION)."
+            exit 1
+          fi
+
+      - name: Check the version is not already on PyPI
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/osml-imagery-toolkit/$VERSION/json")
+          if [ "$code" = "200" ]; then
+            echo "::error::osml-imagery-toolkit $VERSION is already on PyPI. A version can never be re-uploaded."
+            exit 1
+          fi
+          echo "Version $VERSION is available on PyPI (HTTP $code)."
+
+      - name: Write summary
+        run: |
+          {
+            echo "### Release ${{ inputs.version }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Ref | \`${{ github.ref_name }}\` (${{ github.ref_type }}) |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Run tests | \`${{ inputs.run_tests }}\` |"
+            echo "| Dry run | \`${{ inputs.dry_run }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  test:
+    name: Test
+    needs: guard
+    if: ${{ inputs.run_tests }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/tox.yml
+
+  build:
+    name: Build distributions
+    needs: [guard, test]
+    # `test` is skipped when run_tests is false, which would otherwise skip this
+    # job too, so the upstream results are checked explicitly.
+    if: ${{ !cancelled() && needs.guard.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+
+      - name: Validate distribution metadata
+        run: twine check --strict dist/*
+
+      - name: Verify the built artifacts match the requested version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          ls -l dist/
+          test -f "dist/osml_imagery_toolkit-${VERSION}.tar.gz"
+          test -f "dist/osml_imagery_toolkit-${VERSION}-py3-none-any.whl"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ inputs.version }}
+          path: dist/
+          if-no-files-found: error
+
+      - name: Write summary
+        run: |
+          {
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "### Dry run - nothing was published"
+              echo
+              echo "Download the \`dist-${{ inputs.version }}\` artifact from this run to inspect the"
+              echo "sdist and wheel. Re-dispatch with **Dry run** unchecked to publish to PyPI."
+            else
+              echo "### Distributions built - publishing to PyPI"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     environment:
       name: release
+      url: https://pypi.org/project/osml-imagery-toolkit/${{ inputs.version }}/
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: '3.10'
-      - name: Build Package
-        run: |
-          python -m pip install --upgrade pip
-          pip install build
-          python -m build
+          name: dist-${{ inputs.version }}
+          path: dist/
+
       - uses: pypa/gh-action-pypi-publish@v1.13.0
+        with:
+          # PyPI's error detail is only printed in verbose mode; without it a
+          # rejected upload surfaces as a bare "400 Bad Request".
+          verbose: true

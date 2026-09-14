@@ -3,7 +3,7 @@ name: build
 on:
   workflow_dispatch:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "release/**"]
 
 permissions:
   contents: read
